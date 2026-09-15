@@ -81,6 +81,20 @@ export const BADGES = [
     rule: (s) => s.stats.cooldownRoutinesCompleted >= 5,
   },
   {
+    id: "passaggio_5",
+    name: "Puente Sereno",
+    icon: "🌉",
+    description: "Completa cinco rutinas de passaggio.",
+    rule: (s) => s.stats.routinesCompleted?.passaggio >= 5,
+  },
+  {
+    id: "belting_5",
+    name: "Brillo sin Empuje",
+    icon: "🔆",
+    description: "Completa cinco rutinas de belting seguro.",
+    rule: (s) => s.stats.routinesCompleted?.belting >= 5,
+  },
+  {
     id: "agility_5",
     name: "Dedos de Voz",
     icon: "⚡",
