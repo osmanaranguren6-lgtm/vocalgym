@@ -12,6 +12,7 @@ export const defaults = () => ({
       accompanimentVol: -12,
       waitForNote: false,
       routineId: "warmup",
+      recordExercises: false,
   },
   streak: { current: 0, best: 0, lastDate: "", graceUsedWeekOf: "" },
   range: { history: [] },

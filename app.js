@@ -12,6 +12,7 @@ import { renderHeader } from "./js/ui/header.js";
 import { initNotation } from "./js/ui/notation.js";
 import { initHistory } from "./js/ui/history.js";
 import { initSafety } from "./js/ui/safety.js";
+import { initRecordings } from "./js/ui/recordings.js";
 
 const bus = new EventTarget();
 const store = createStorage();
@@ -64,6 +65,11 @@ function bootstrap() {
     metronome,
     alertUser: shell.alertUser,
   });
+  const recordings = initRecordings({
+    audio,
+    bus,
+    alertUser: shell.alertUser,
+  });
   const routine = initRoutine({
     audio,
     bus,
@@ -73,6 +79,7 @@ function bootstrap() {
     renderHeader: shell.renderHeader,
     loadRoutineExercise: notation.loadRoutineExercise,
     metronome,
+    recordings,
   });
   window.__routine = routine;
   initRange({

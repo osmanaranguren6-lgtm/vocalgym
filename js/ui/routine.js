@@ -19,6 +19,7 @@ export function initRoutine({
   renderHeader,
   loadRoutineExercise,
   metronome,
+  recordings,
 }) {
   let routineId = store.state.settings.routineId || "warmup";
   let activeStages = ROUTINES[routineId] || WARMUP;
@@ -29,6 +30,15 @@ export function initRoutine({
   selectRoutineButton(routineId);
 
   const routine = new RoutineTimer(bus, audio, store.state);
+  const recordToggle = document.getElementById("record-exercises");
+  if (recordToggle) {
+    recordToggle.checked = Boolean(store.state.settings.recordExercises);
+    recordToggle.addEventListener("change", () => {
+      store.update((state) => {
+        state.settings.recordExercises = recordToggle.checked;
+      });
+    });
+  }
 
   function setRoutine(nextId) {
     if (routine.running) {
@@ -117,6 +127,9 @@ export function initRoutine({
     }
     if (routineId === "laxvox") {
       document.getElementById("motivation").textContent = phrase("laxvox");
+    }
+    if (recordToggle?.checked && recordings && routine.running) {
+      recordings.startExercise(exercise?.name || "Ejercicio");
     }
   });
 

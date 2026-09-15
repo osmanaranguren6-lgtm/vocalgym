@@ -478,6 +478,24 @@ select {
   border-color: var(--accent);
   color: #cffafe;
 }
+.recording-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1.5fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #1e293b;
+  border-radius: 0.75rem;
+  background: rgb(15 23 42 / 0.7);
+}
+.recording-row span {
+  display: block;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+.recording-row audio {
+  width: 100%;
+}
 .notation-skeleton {
   min-height: 4rem;
   display: grid;
