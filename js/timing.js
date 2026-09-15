@@ -408,6 +408,7 @@ const PASSAGGIO = [
       name: "Sirena en 'ng'",
       type: "glissando",
       instruction: "Sirena suave en 'ng' cruzando el pasaje sin empujar",
+      why: "Suaviza el paso entre registros manteniendo el aire libre.",
     }],
   },
   {
@@ -423,6 +424,7 @@ const PASSAGGIO = [
       pattern: [0, 12, 0],
       bpm: 72,
       instruction: "Canta 'gu' con una octava elástica.",
+      why: "Coordina octavas con una vocalización ligera y estable.",
     }],
   },
   {
@@ -438,6 +440,7 @@ const PASSAGGIO = [
       pattern: [7, 4, 0],
       bpm: 84,
       instruction: "Desciende en 'mum' sin empujar.",
+      why: "Organiza el descenso y conserva una emisión cómoda.",
     }],
   },
   {
@@ -451,6 +454,7 @@ const PASSAGGIO = [
       name: "Humming de cierre",
       type: "sustain",
       instruction: "Mantén un humming cómodo y resonante.",
+      why: "Cierra la práctica con resonancia suave y relajada.",
     }],
   },
 ];
@@ -469,6 +473,7 @@ const BELTING = [
       pattern: [0, 4, 7, 4, 0],
       bpm: 90,
       instruction: "Lleva brillo a 'nay' sin apretar.",
+      why: "Entrena brillo y proyección sin empujar.",
     }],
   },
   {
@@ -484,6 +489,7 @@ const BELTING = [
       pattern: [7, 7, 9, 7],
       bpm: 96,
       instruction: "Canta 'hey' claro y cómodo.",
+      why: "Coordina llamadas brillantes con presión equilibrada.",
     }],
   },
   {
@@ -498,6 +504,7 @@ const BELTING = [
       type: "sustain",
       targetSeconds: 8,
       instruction: "Sostén un sonido brillante durante 8 segundos.",
+      why: "Sostén una voz brillante con apoyo equilibrado.",
     }],
   },
   {
@@ -511,6 +518,7 @@ const BELTING = [
       name: "Descompresión: sirena descendente",
       type: "glissando",
       instruction: "Desciende como un suspiro y deja pasar el aire.",
+      why: "Libera presión mediante un descenso suave.",
     }],
   },
 ];

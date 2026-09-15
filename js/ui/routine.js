@@ -147,7 +147,10 @@ export function initRoutine({
       document.getElementById("motivation").textContent = phrase("laxvox");
     }
     if (recordToggle?.checked && recordings && routine.running) {
-      recordings.startExercise(exercise?.name || "Ejercicio");
+      recordings.startExercise(
+        exercise?.name || "Ejercicio",
+        exercise?.id || "ejercicio",
+      );
     }
   });
 
@@ -161,6 +164,7 @@ export function initRoutine({
   if (metronome) {
     window.addEventListener("routine:bpm", (event) => {
       metronome.setBpm(event.detail.bpm);
+      window.__routineNotationEngine?.setBpm(event.detail.bpm);
     });
   }
 
@@ -190,6 +194,8 @@ export function initRoutine({
     if (!result.message) {
       return;
     }
+    window.__routineNotationEngine &&
+      (window.__routineNotationEngine.adaptiveShift = result.transpose);
     current.bpm = result.bpm;
     current.transpose = result.transpose;
     current.bpmDelta = result.bpm - (exercise.bpm || 90);
@@ -197,6 +203,7 @@ export function initRoutine({
     current.stepUps = result.stepUps;
     metrics.perExercise[metrics.exerciseId] = current;
     metronome?.setBpm(result.bpm);
+    window.__routineNotationEngine?.setBpm(result.bpm);
     document.getElementById("routine-feedback").textContent = result.message;
   });
 
@@ -211,6 +218,7 @@ export function initRoutine({
       ) * 60;
       state.sessions.push({
         date: new Date().toISOString(),
+        routineId,
         durationSec,
         score: summary.score,
         perExercise: summary.perExercise,

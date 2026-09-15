@@ -64,9 +64,30 @@ const EXERCISES = {
     title: "Llamadas hey",
     url: "assets/exercises/calls-hey.musicxml",
   },
+  estrellita: {
+    title: "Estrellita (demo)",
+    url: "assets/songs/estrellita.musicxml",
+  },
 };
 
 let osmdLibraryPromise = null;
+
+function firstLyric(note) {
+  const entries = note?.ParentVoiceEntry?.LyricsEntries;
+  if (!entries) {
+    return "";
+  }
+  const values =
+    entries instanceof Map
+      ? [...entries.values()]
+      : Array.isArray(entries)
+        ? entries
+        : entries.table
+          ? Object.values(entries.table).map((item) => item.value || item)
+          : Object.values(entries);
+  const lyric = values?.[0];
+  return String(lyric?.Text || lyric?.text || "").trim();
+}
 
 /**
  * Loads OpenSheetMusicDisplay once through a dynamic script tag.
@@ -117,6 +138,8 @@ export class NotationEngine {
     this.title = "";
     this.transpose = 0;
     this.timeline = [];
+    this.phrases = [];
+    this.currentPhraseIndex = 0;
     this.scheduleIds = [];
     this.playing = false;
     this.loop = true;
@@ -126,6 +149,7 @@ export class NotationEngine {
     this.reverb = null;
     this.routineProgression = null;
     this.routineShift = 0;
+    this.adaptiveShift = 0;
     this.routineDirection = 1;
     this.apiFacts = {};
     this.waitForNote = false;
@@ -199,6 +223,7 @@ export class NotationEngine {
   setTranspose(semitones) {
     this.transpose = Math.max(-24, Math.min(24, Math.round(semitones)));
     this.routineShift = 0;
+    this.adaptiveShift = 0;
     this.routineDirection = 1;
 
     if (this.osmd?.Sheet) {
@@ -263,6 +288,7 @@ export class NotationEngine {
   setRoutineProgression({ comfortLow, comfortHigh }) {
     this.routineProgression = { comfortLow, comfortHigh };
     this.routineShift = 0;
+    this.adaptiveShift = 0;
     this.routineDirection = 1;
   }
 
@@ -271,6 +297,16 @@ export class NotationEngine {
    */
   setWaitForNote(enabled) {
     this.waitForNote = Boolean(enabled);
+  }
+
+  /**
+   * Sets the shared transport tempo used by scheduled score notes.
+   */
+  setBpm(bpm) {
+    this.bpm = Math.max(40, Math.min(240, Number(bpm) || 90));
+    if (window.Tone) {
+      Tone.Transport.bpm.value = this.bpm;
+    }
   }
 
   /**
@@ -318,6 +354,7 @@ export class NotationEngine {
    */
   buildTimeline() {
     this.timeline = [];
+    this.phrases = [];
     this.cursorIndex = -1;
 
     if (!this.osmd?.cursor?.Iterator) {
@@ -334,11 +371,14 @@ export class NotationEngine {
       const midis = notes
         .map((note) => this.noteMidi(note, true))
         .filter((midi) => Number.isFinite(midi));
+      const lyric = firstLyric(notes[0]);
 
       this.timeline.push({
         index,
         beats,
         midis,
+        lyric,
+        phraseIndex: lyric ? Math.floor(index / 16) : Math.floor(index / 8),
         transposed: this.transpose !== 0,
       });
       index += 1;
@@ -353,9 +393,27 @@ export class NotationEngine {
       );
     });
     cursor.reset();
+    const phraseCount = Math.max(
+      1,
+      ...this.timeline.map((entry) => entry.phraseIndex + 1),
+    );
+    this.phrases = Array.from({ length: phraseCount }, (_, phraseIndex) => {
+      const entries = this.timeline.filter(
+        (entry) => entry.phraseIndex === phraseIndex,
+      );
+      return {
+        index: phraseIndex,
+        startEntry: entries[0]?.index ?? 0,
+        endEntry: entries.at(-1)?.index ?? 0,
+        startBeats: entries[0]?.beats ?? 0,
+        endBeats: (entries.at(-1)?.beats || 0) +
+          (entries.at(-1)?.durationBeats || 1),
+        text: entries.map((entry) => entry.lyric).filter(Boolean).join(" "),
+      };
+    });
     this.bus.dispatchEvent(
       new CustomEvent("notation:timeline", {
-        detail: this.timeline,
+        detail: { timeline: this.timeline, phrases: this.phrases },
       }),
     );
   }
@@ -591,7 +649,10 @@ export class NotationEngine {
     if (!this.playing || !this.waitForNote || !frame) {
       return;
     }
-    const target = this.timeline[this.waitIndex]?.midis?.[0] + this.routineShift;
+    const target =
+      this.timeline[this.waitIndex]?.midis?.[0] +
+      this.routineShift +
+      this.adaptiveShift;
     if (!Number.isFinite(target) || frame.midi !== target) {
       this.waitGreenSince = 0;
       this.waitYellowSince = 0;
@@ -651,7 +712,7 @@ export class NotationEngine {
    */
   emitTargets(entry) {
     entry.midis.forEach((baseMidi) => {
-      const midi = baseMidi + this.routineShift;
+      const midi = baseMidi + this.routineShift + this.adaptiveShift;
       const frequency = freqFromMidi(midi, this.getSettings().a4);
       this.bus.dispatchEvent(
         new CustomEvent("note:target", {
@@ -661,6 +722,8 @@ export class NotationEngine {
             startBeat: entry.beats,
             durBeats: entry.durationBeats,
             index: entry.index,
+            phraseIndex: entry.phraseIndex,
+            lyric: entry.lyric,
           },
         }),
       );
@@ -697,8 +760,10 @@ export class NotationEngine {
     this.bus.dispatchEvent(new CustomEvent("routine:loop"));
 
     const baseMidis = this.timeline.flatMap((entry) => entry.midis);
-    const highest = Math.max(...baseMidis) + this.routineShift;
-    const lowest = Math.min(...baseMidis) + this.routineShift;
+    const highest =
+      Math.max(...baseMidis) + this.routineShift + this.adaptiveShift;
+    const lowest =
+      Math.min(...baseMidis) + this.routineShift + this.adaptiveShift;
 
     if (
       this.routineDirection > 0 &&

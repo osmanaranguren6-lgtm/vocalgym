@@ -2,13 +2,16 @@
  * Tracks vibrato characteristics from the recent smoothed pitch stream.
  */
 export class VibratoAnalyzer {
-  constructor() {
+  constructor(getA4 = () => 440) {
     this.frames = [];
+    this.getA4 = getA4;
   }
 
   push(frame, now = performance.now()) {
-    if (frame?.voiced && Number.isFinite(frame.midi)) {
-      this.frames.push({ now, midi: frame.midi });
+    if (frame?.voiced && Number.isFinite(frame.f0) && frame.f0 > 0) {
+      const a4 = Number(this.getA4()) || 440;
+      const midi = 69 + 12 * Math.log2(frame.f0 / a4);
+      this.frames.push({ now, midi });
     }
     this.frames = this.frames.filter((item) => now - item.now <= 1500);
     return this.result(now);
@@ -103,7 +106,7 @@ export class PressureDetector {
  * Starts live voice analysis, range-map persistence, and pressure alerts.
  */
 export function initAnalysis({ store, bus, renderPressure, renderAnalysis }) {
-  const vibrato = new VibratoAnalyzer();
+  const vibrato = new VibratoAnalyzer(() => store.state.settings.a4);
   const pressure = new PressureDetector();
   let lastSave = 0;
   bus.addEventListener("pitch:frame", (event) => {
