@@ -57,8 +57,9 @@ export function createShell({ audio, bus, store, pitchMonitor, tunerMonitor }) {
 
     setZone(frame.zone, message);
     getElement("pitch-note").textContent = noteName(frame.midi);
+    const frequency = Number.isFinite(frame.f0) ? `${frame.f0.toFixed(1)} Hz` : "Voz detectada";
     getElement("pitch-frequency").textContent =
-      `${frame.f0.toFixed(1)} Hz · ${cents > 0 ? "+" : ""}${cents.toFixed(0)} cents`;
+      `${frequency} · ${cents > 0 ? "+" : ""}${cents.toFixed(0)} cents`;
     getElement("tuner-note").textContent = noteName(frame.midi);
     getElement("tuner-cents").textContent =
       `${cents > 0 ? "+" : ""}${cents.toFixed(0)} cents`;

@@ -38,6 +38,64 @@ select {
   color: #cbd5e1;
   cursor: pointer;
 }
+
+.safety-button {
+  border: 1px solid rgba(251, 113, 133, 0.45);
+  border-radius: 999px;
+  background: rgba(251, 113, 133, 0.1);
+  color: #fecdd3;
+  font-size: 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.history-chart-wrap {
+  min-height: 240px;
+  position: relative;
+}
+
+.history-chart-wrap canvas {
+  display: block;
+  height: 240px;
+  width: 100%;
+}
+
+.history-tooltip {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 0.6rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  pointer-events: none;
+  position: fixed;
+  z-index: 40;
+}
+
+.stat-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1e293b;
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.stat-card span {
+  color: #94a3b8;
+  display: block;
+  font-size: 0.75rem;
+}
+
+.stat-card strong {
+  color: #67e8f9;
+  display: block;
+  font-size: 1.35rem;
+  margin-top: 0.25rem;
+}
+
+.badge-card:not(.unlocked) {
+  filter: grayscale(0.75);
+  opacity: 0.72;
+}
 .medal {
   display: grid;
   place-items: center;

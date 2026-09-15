@@ -84,6 +84,11 @@ export class NotationEngine {
     this.routineShift = 0;
     this.routineDirection = 1;
     this.apiFacts = {};
+    this.waitForNote = false;
+    this.waitListener = null;
+    this.waitIndex = -1;
+    this.waitGreenSince = 0;
+    this.waitYellowSince = 0;
   }
 
   /**
@@ -212,6 +217,13 @@ export class NotationEngine {
     this.routineProgression = { comfortLow, comfortHigh };
     this.routineShift = 0;
     this.routineDirection = 1;
+  }
+
+  /**
+   * Updates the preferred playback mode for the next play action.
+   */
+  setWaitForNote(enabled) {
+    this.waitForNote = Boolean(enabled);
   }
 
   /**
@@ -388,7 +400,7 @@ export class NotationEngine {
   /**
    * Starts playback and schedules cursor, target, and accompaniment events.
    */
-  async play({ loop = true, useMetronome = false } = {}) {
+  async play({ loop = true, useMetronome = false, waitForNote = false } = {}) {
     if (!this.osmd || !window.Tone || !this.timeline.length) {
       return;
     }
@@ -403,12 +415,18 @@ export class NotationEngine {
     this.stop();
     this.loop = loop;
     this.playing = true;
+    this.waitForNote = waitForNote;
     this.ensureSynth();
     this.osmd.cursor.reset();
     this.cursorIndex = -1;
 
     if (useMetronome && this.metronome && !this.metronome.running) {
       await this.metronome.toggle();
+    }
+
+    if (waitForNote) {
+      this.startWaitForNote();
+      return;
     }
 
     const last = this.timeline[this.timeline.length - 1];
@@ -456,6 +474,13 @@ export class NotationEngine {
     }
     this.scheduleIds = [];
     this.playing = false;
+    if (this.waitListener) {
+      this.bus.removeEventListener("pitch:frame", this.waitListener);
+      this.waitListener = null;
+    }
+    this.waitIndex = -1;
+    this.waitGreenSince = 0;
+    this.waitYellowSince = 0;
 
     if (this.osmd?.cursor) {
       this.osmd.cursor.reset();
@@ -464,6 +489,91 @@ export class NotationEngine {
 
     if (window.Tone) {
       Tone.Transport.loop = false;
+    }
+  }
+
+  /**
+   * Starts note-by-note playback driven by green pitch frames.
+   */
+  startWaitForNote() {
+    this.waitIndex = -1;
+    this.waitListener = (event) => this.handleWaitFrame(event.detail);
+    this.bus.addEventListener("pitch:frame", this.waitListener);
+    this.advanceWaitNote();
+    this.bus.dispatchEvent(
+      new CustomEvent("notation:play", {
+        detail: {
+          title: this.title,
+          transpose: this.transpose,
+          waitForNote: true,
+        },
+      }),
+    );
+  }
+
+  /**
+   * Advances the wait mode cursor and emits the next target.
+   */
+  advanceWaitNote() {
+    const nextIndex = this.waitIndex + 1;
+    if (nextIndex >= this.timeline.length) {
+      if (!this.loop) {
+        this.stop();
+        return;
+      }
+      this.waitIndex = -1;
+      this.advanceRoutineProgression();
+      this.advanceWaitNote();
+      return;
+    }
+    this.waitIndex = nextIndex;
+    const entry = this.timeline[this.waitIndex];
+    this.moveCursor(entry.index);
+    this.emitTargets(entry);
+    this.waitGreenSince = 0;
+    this.waitYellowSince = 0;
+  }
+
+  /**
+   * Accumulates a continuous green note with a short yellow grace.
+   */
+  handleWaitFrame(frame) {
+    if (!this.playing || !this.waitForNote || !frame) {
+      return;
+    }
+    const target = this.timeline[this.waitIndex]?.midis?.[0] + this.routineShift;
+    if (!Number.isFinite(target) || frame.midi !== target) {
+      this.waitGreenSince = 0;
+      this.waitYellowSince = 0;
+      return;
+    }
+    const now = performance.now();
+    if (!frame.voiced || frame.zone === "red" || frame.zone === "none") {
+      this.waitGreenSince = 0;
+      this.waitYellowSince = 0;
+      return;
+    }
+    if (frame.zone === "green") {
+      if (!this.waitGreenSince) {
+        this.waitGreenSince = now;
+      }
+      this.waitYellowSince = 0;
+      if (now - this.waitGreenSince >= 300) {
+        this.advanceWaitNote();
+      }
+      return;
+    }
+    if (frame.zone === "yellow") {
+      if (!this.waitGreenSince) {
+        this.waitYellowSince = now;
+        return;
+      }
+      if (!this.waitYellowSince) {
+        this.waitYellowSince = now;
+      }
+      if (now - this.waitYellowSince > 300) {
+        this.waitGreenSince = 0;
+      }
     }
   }
 

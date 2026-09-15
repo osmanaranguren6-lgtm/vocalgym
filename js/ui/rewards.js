@@ -21,8 +21,15 @@ export function renderBadges(state) {
       <article class="badge-card ${state.badges[badge.id] ? "unlocked" : ""}">
         <div class="text-4xl">${badge.icon}</div>
         <h3 class="mt-3 font-bold">${badge.name}</h3>
+        <p class="mt-2 text-sm text-slate-400">${badge.description}</p>
         <p class="mt-1 text-xs text-slate-500">
-          ${state.badges[badge.id] ? "Desbloqueado" : "En progreso"}
+          ${
+            state.badges[badge.id]
+              ? `Desbloqueado · ${new Date(
+                  state.badges[badge.id],
+                ).toLocaleDateString("es-ES")}`
+              : "Bloqueado · En progreso"
+          }
         </p>
       </article>
     `,

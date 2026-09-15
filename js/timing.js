@@ -87,6 +87,11 @@ export const WARMUP = [
     ],
   },
 ];
+/** Five-minute routine for low-energy days. */
+export const EXPRESS = WARMUP.slice(0, 2).map((stage, index) => ({
+  ...stage,
+  minutes: index === 0 ? 2 : 3,
+}));
 /** Publishes elapsed audio-clock ticks for routine timing. */
 export class MasterClock {
   constructor(ctx, bus) {
@@ -141,6 +146,7 @@ export class RoutineTimer extends EventTarget {
     this.startedAt = 0;
     this.activeSeconds = 0;
     this.lastTick = 0;
+    this.stages = WARMUP;
     bus.addEventListener("clock:tick", () => this.tick());
   }
   duration(stage) {
@@ -149,7 +155,7 @@ export class RoutineTimer extends EventTarget {
       60
     );
   }
-  start() {
+  start(stages = this.stages) {
     if (this.running) return;
     if (!this.audio.ctx) {
       this.audio
@@ -159,6 +165,8 @@ export class RoutineTimer extends EventTarget {
         );
       return;
     }
+    this.stages = stages;
+    this.index = 0;
     this.clock ??= new MasterClock(this.audio.ctx, this.bus);
     this.running = true;
     this.clock.start();
@@ -166,7 +174,7 @@ export class RoutineTimer extends EventTarget {
     this.lastTick = this.startedAt;
     this.bus.dispatchEvent(
       new CustomEvent("stage:change", {
-        detail: { from: null, to: WARMUP[this.index].id },
+        detail: { from: null, to: this.stages[this.index].id },
       }),
     );
     this.tick();
@@ -176,22 +184,27 @@ export class RoutineTimer extends EventTarget {
     this.clock?.pause();
   }
   skip() {
-    if (this.index < WARMUP.length - 1) {
-      const from = WARMUP[this.index].id;
+    if (this.index < this.stages.length - 1) {
+      const from = this.stages[this.index].id;
       this.index++;
       this.clock.reset();
       this.clock.start();
       this.bus.dispatchEvent(
         new CustomEvent("stage:change", {
-          detail: { from, to: WARMUP[this.index].id },
+          detail: { from, to: this.stages[this.index].id },
         }),
       );
       this.tick();
     } else this.finish();
   }
+  stop() {
+    this.running = false;
+    this.clock?.pause();
+    this.bus.dispatchEvent(new CustomEvent("routine:stop"));
+  }
   tick() {
     if (!this.running) return;
-    const stage = WARMUP[this.index],
+    const stage = this.stages[this.index],
       elapsed = this.clock.elapsed,
       remaining = Math.max(0, this.duration(stage) - elapsed),
       progress = Math.min(1, elapsed / this.duration(stage));

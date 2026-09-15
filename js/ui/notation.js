@@ -14,6 +14,7 @@ export function initNotation({ bus, store, metronome, alertUser }) {
   let mainEngine = null;
   let routineEngine = null;
   let loaded = false;
+  let waitForNote = false;
 
   const getRange = () => store.state.range.current;
   const getSettings = () => store.state.settings;
@@ -133,6 +134,7 @@ export function initNotation({ bus, store, metronome, alertUser }) {
       await engine.play({
         loop: engine.loop,
         useMetronome: document.getElementById("notation-metronome").checked,
+        waitForNote,
       });
       setNotationStatus("Reproduciendo");
     });
@@ -148,6 +150,12 @@ export function initNotation({ bus, store, metronome, alertUser }) {
     mainEngine.loop = !mainEngine.loop;
     document.getElementById("notation-loop").textContent =
       `Repetir: ${mainEngine.loop ? "sí" : "no"}`;
+  });
+  document.getElementById("notation-wait").addEventListener("click", () => {
+    waitForNote = !waitForNote;
+    document.getElementById("notation-wait").textContent =
+      `Esperar mi nota: ${waitForNote ? "sí" : "no"}`;
+    mainEngine?.setWaitForNote?.(waitForNote);
   });
 
   bus.addEventListener("notation:rendered", (event) => {
@@ -187,12 +195,19 @@ export function initNotation({ bus, store, metronome, alertUser }) {
     document.getElementById("routine-notation-status").textContent =
       `Transposición ${formatTranspose(routineEngine.transpose)}`;
     await new Promise((resolve) => window.setTimeout(resolve, 180));
-    await routineEngine.play({ loop: true });
+    await routineEngine.play({
+      loop: true,
+      waitForNote: store.state.settings.waitForNote,
+    });
     return routineEngine;
   }
 
   return {
     loadRoutineExercise,
+    stop: () => {
+      mainEngine?.stop();
+      routineEngine?.stop();
+    },
     getEngine: () => mainEngine,
   };
 }

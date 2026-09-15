@@ -1,4 +1,4 @@
-import { WARMUP, RoutineTimer } from "../timing.js";
+import { EXPRESS, WARMUP, RoutineTimer } from "../timing.js";
 import { evaluateBadges, phrase, updateStreak } from "../gamification.js";
 import { renderStages } from "./header.js";
 
@@ -14,20 +14,29 @@ export function initRoutine({
   renderHeader,
   loadRoutineExercise,
 }) {
-  renderStages();
+  let activeStages = WARMUP;
+  renderStages(activeStages);
 
   const routine = new RoutineTimer(bus, audio, store.state);
 
-  document
-    .getElementById("routine-start")
-    .addEventListener("click", async () => {
-      await activateMicrophone();
-      routine.start();
-      document.getElementById("routine-start").disabled = true;
-      document.getElementById("routine-pause").disabled = false;
-      document.getElementById("routine-skip").disabled = false;
-      document.getElementById("motivation").textContent = phrase("start");
-    });
+  async function start(stages) {
+    activeStages = stages;
+    renderStages(activeStages);
+    await activateMicrophone();
+    routine.start(activeStages);
+    document.getElementById("routine-start").disabled = true;
+    document.getElementById("routine-express").disabled = true;
+    document.getElementById("routine-pause").disabled = false;
+    document.getElementById("routine-skip").disabled = false;
+    document.getElementById("motivation").textContent = phrase("start");
+  }
+
+  document.getElementById("routine-start").addEventListener("click", () => {
+    start(WARMUP);
+  });
+  document.getElementById("routine-express").addEventListener("click", () => {
+    start(EXPRESS);
+  });
 
   document.getElementById("routine-pause").addEventListener("click", () => {
     routine.pause();
@@ -43,7 +52,7 @@ export function initRoutine({
   });
 
   bus.addEventListener("stage:change", (event) => {
-    const stage = WARMUP.find((item) => item.id === event.detail.to);
+    const stage = activeStages.find((item) => item.id === event.detail.to);
     const exercise = stage?.exercises[0];
 
     if (exercise?.type === "pattern" && loadRoutineExercise) {
@@ -56,18 +65,21 @@ export function initRoutine({
   });
 
   bus.addEventListener("routine:complete", () => {
-    updateStreak(store.state);
     store.update((state) => {
+      updateStreak(state);
+      const durationSec = activeStages.reduce(
+        (total, stage) => total + stage.minutes,
+        0,
+      ) * 60;
       state.sessions.push({
         date: new Date().toISOString(),
-        durationSec:
-          WARMUP.reduce((total, stage) => total + stage.minutes, 0) * 60,
+        durationSec,
         score: 80,
         perExercise: [],
         greenStreakMs: 0,
         badges: [],
       });
-      state.stats.totalActiveSec += 1020;
+      state.stats.totalActiveSec += durationSec;
     });
     bus.dispatchEvent(
       new CustomEvent("score:update", {
@@ -79,14 +91,29 @@ export function initRoutine({
     evaluateBadges(store.state, bus);
     renderHeader();
     alertUser("Rutina completada. Tu constancia cuenta.");
+    document.getElementById("routine-start").disabled = false;
+    document.getElementById("routine-express").disabled = false;
+    document.getElementById("routine-pause").disabled = true;
+    document.getElementById("routine-skip").disabled = true;
   });
+
+  function stop() {
+    routine.stop();
+    document.getElementById("routine-start").disabled = false;
+    document.getElementById("routine-express").disabled = false;
+    document.getElementById("routine-pause").disabled = true;
+    document.getElementById("routine-skip").disabled = true;
+  }
+
+  return { stop };
 }
 
 /**
  * Renders stage name, exercise instructions, progress, and timer.
  */
 export function renderRoutine(detail) {
-  const stage = WARMUP.find((item) => item.id === detail.stageId) || WARMUP[0];
+  const stage =
+    WARMUP.find((item) => item.id === detail.stageId) || WARMUP[0];
   const exercise = stage.exercises[0];
 
   document.getElementById("stage-name").textContent = stage.name;

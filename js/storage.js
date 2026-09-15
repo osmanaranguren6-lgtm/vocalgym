@@ -10,6 +10,7 @@ export const defaults = () => ({
     routineOverrides: {},
     deviceId: "",
     accompanimentVol: -12,
+    waitForNote: false,
   },
   streak: { current: 0, best: 0, lastDate: "", graceUsedWeekOf: "" },
   range: { history: [] },
@@ -20,6 +21,7 @@ export const defaults = () => ({
     fullRestsTaken: 0,
     maxBpmCompleted: 0,
     totalActiveSec: 0,
+    lastDiscomfortDate: "",
   },
   badges: {},
   lastSiren: null,
@@ -83,7 +85,11 @@ export function createStorage() {
       return JSON.stringify(state, null, 2);
     },
     importJSON(text) {
-      const next = migrate(JSON.parse(text));
+      const parsed = JSON.parse(text);
+      if (parsed?.version !== 1) {
+        throw new Error("El respaldo no pertenece a una versión compatible.");
+      }
+      const next = migrate(parsed);
       state = next;
       saveNow();
       return state;

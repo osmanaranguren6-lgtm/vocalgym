@@ -10,6 +10,8 @@ import { initSettings } from "./js/ui/settings.js";
 import { createShell } from "./js/ui/shell.js";
 import { renderHeader } from "./js/ui/header.js";
 import { initNotation } from "./js/ui/notation.js";
+import { initHistory } from "./js/ui/history.js";
+import { initSafety } from "./js/ui/safety.js";
 
 const bus = new EventTarget();
 const store = createStorage();
@@ -60,7 +62,7 @@ function bootstrap() {
     metronome,
     alertUser: shell.alertUser,
   });
-  initRoutine({
+  const routine = initRoutine({
     audio,
     bus,
     store,
@@ -85,6 +87,14 @@ function bootstrap() {
     tunerMonitor,
     alertUser: shell.alertUser,
   });
+  initHistory({ store, bus });
+  initSafety({
+    store,
+    routine,
+    audio,
+    notation,
+    alertUser: shell.alertUser,
+  });
 
   if (store.state.range.current) {
     renderRange(store.state.range.current);
@@ -98,3 +108,31 @@ function bootstrap() {
 }
 
 bootstrap();
+
+/**
+ * Registers the relative service worker on supported origins.
+ */
+function registerServiceWorker() {
+  if (
+    !("serviceWorker" in navigator) ||
+    (location.protocol !== "https:" && location.hostname !== "localhost")
+  ) {
+    return;
+  }
+  navigator.serviceWorker.register("./sw.js").then((registration) => {
+    const notify = () => shell.alertUser("Nueva versión disponible — recargar");
+    if (registration.waiting) {
+      notify();
+    }
+    registration.addEventListener("updatefound", () => {
+      const worker = registration.installing;
+      worker?.addEventListener("statechange", () => {
+        if (worker.state === "installed" && navigator.serviceWorker.controller) {
+          notify();
+        }
+      });
+    });
+  });
+}
+
+registerServiceWorker();

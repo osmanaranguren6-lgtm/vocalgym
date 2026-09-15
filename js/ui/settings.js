@@ -4,6 +4,25 @@
 export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
   const dialog = document.getElementById("settings-dialog");
 
+  async function populateDevices() {
+    const devices =
+      (await navigator.mediaDevices?.enumerateDevices?.()) || [];
+    const select = document.getElementById("setting-device");
+    const current = store.state.settings.deviceId || "";
+    select.innerHTML =
+      '<option value="">Predeterminado</option>' +
+      devices
+        .filter((device) => device.kind === "audioinput")
+        .map(
+          (device) =>
+            `<option value="${device.deviceId}">${
+              device.label || "Micrófono"
+            }</option>`,
+        )
+        .join("");
+    select.value = current;
+  }
+
   document
     .getElementById("settings-open")
     .addEventListener("click", async () => {
@@ -15,21 +34,9 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
         settings.accompanimentVol ?? -12;
       document.getElementById("setting-accompaniment-value").textContent =
         `${settings.accompanimentVol ?? -12} dB`;
-
-      const devices =
-        (await navigator.mediaDevices?.enumerateDevices?.()) || [];
-      document.getElementById("setting-device").innerHTML =
-        '<option value="">Predeterminado</option>' +
-        devices
-          .filter((device) => device.kind === "audioinput")
-          .map(
-            (device) =>
-              `<option value="${device.deviceId}">${
-                device.label || "Micrófono"
-              }</option>`,
-          )
-          .join("");
-      document.getElementById("setting-device").value = settings.deviceId || "";
+      document.getElementById("setting-wait-for-note").checked =
+        settings.waitForNote;
+      await populateDevices();
       dialog.showModal();
     });
 
@@ -45,6 +52,9 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
       state.settings.accompanimentVol = Number(
         document.getElementById("setting-accompaniment").value,
       );
+      state.settings.waitForNote = document.getElementById(
+        "setting-wait-for-note",
+      ).checked;
     });
     pitchMonitor.setA4(store.state.settings.a4);
     tunerMonitor.setA4(store.state.settings.a4);
@@ -64,6 +74,7 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
     );
     link.download = "vocalgym-backup.json";
     link.click();
+    alertUser("Datos exportados correctamente.");
   });
 
   document.getElementById("import-data").addEventListener("click", () => {
@@ -76,8 +87,13 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
       const file = event.target.files[0];
 
       if (file) {
-        store.importJSON(await file.text());
-        alertUser("Datos importados correctamente.");
+        try {
+          store.importJSON(await file.text());
+          alertUser("Datos importados correctamente.");
+        } catch (error) {
+          alertUser(`No se pudo importar: ${error.message}`);
+        }
       }
     });
+  navigator.mediaDevices?.addEventListener("devicechange", populateDevices);
 }

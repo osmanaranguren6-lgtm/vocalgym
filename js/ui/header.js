@@ -17,10 +17,10 @@ export function alertUser(text) {
 /**
  * Renders the stage cards for the routine panel.
  */
-export function renderStages() {
+export function renderStages(stages = WARMUP) {
   const root = document.getElementById("stage-cards");
 
-  root.innerHTML = WARMUP.map(
+  root.innerHTML = stages.map(
     (stage, index) => `
       <article class="stage-card" id="stage-card-${stage.id}">
         <div class="flex items-center gap-2">

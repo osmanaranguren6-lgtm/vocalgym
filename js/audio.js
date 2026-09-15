@@ -138,6 +138,16 @@ export class AudioEngine extends EventTarget {
     if (this.stream)
       this.stream.getAudioTracks().forEach((t) => (t.enabled = enabled));
   }
+  stop() {
+    this.setEnabled(false);
+    this.stream?.getTracks().forEach((track) => track.stop());
+    this.node?.disconnect();
+    this.node = null;
+    this.stream = null;
+    this.ctx?.close();
+    this.ctx = null;
+    this.target = null;
+  }
   getState() {
     return this.ctx?.state || "suspended";
   }

@@ -4,12 +4,14 @@ export const BADGES = [
     id: "diaphragm",
     name: "Dominador del Diafragma",
     icon: "🥇",
+    description: "Completa cinco prácticas de respiración.",
     rule: (s) => s.stats.breathRoutinesCompleted >= 5,
   },
   {
     id: "siren",
     name: "Siren Master",
     icon: "🚀",
+    description: "Recorre tu rango con una sirena estable.",
     rule: (s) =>
       s.lastSiren &&
       s.lastSiren.maxJumpCents < 300 &&
@@ -19,36 +21,42 @@ export const BADGES = [
     id: "steel",
     name: "Afinación de Acero",
     icon: "🎯",
+    description: "Mantén diez segundos continuos en verde.",
     rule: (s) => s.stats.bestGreenStreakMs >= 10000,
   },
   {
     id: "first_range",
     name: "Cartógrafo Vocal",
     icon: "🗺️",
+    description: "Guarda tu primera medición de rango.",
     rule: (s) => s.range?.history.length >= 1,
   },
   {
     id: "rest_respected",
     name: "Guardián de la Laringe",
     icon: "🛡️",
+    description: "Respeta tres descansos vocales completos.",
     rule: (s) => s.stats.fullRestsTaken >= 3,
   },
   {
     id: "streak7",
     name: "Semana de Hierro",
     icon: "🔥",
+    description: "Alcanza una racha de siete días.",
     rule: (s) => s.streak.best >= 7,
   },
   {
     id: "octave2",
     name: "Dos Octavas",
     icon: "🎹",
+    description: "Mide una extensión de dos octavas.",
     rule: (s) => s.range?.current?.semitones >= 24,
   },
   {
     id: "tempo200",
     name: "Velocista",
     icon: "⚡",
+    description: "Completa un ejercicio a 200 BPM.",
     rule: (s) => s.stats.maxBpmCompleted >= 200,
   },
 ];
@@ -81,6 +89,24 @@ export const PHRASES = [
   ["range", "Conocer tu rango es escucharte, no ponerte límites."],
   ["range", "Tu tesitura es un mapa para practicar con seguridad."],
   ["range", "Explorar con cuidado amplía tus opciones."],
+  ["start", "Cinco minutos también cuentan para tu voz."],
+  ["start", "Escucha primero; la nota llega después."],
+  ["start", "Tu cuerpo aprende con repeticiones amables."],
+  ["start", "Una práctica breve puede cambiar tu día."],
+  ["struggle", "Vuelve a la respiración y reduce la intensidad."],
+  ["struggle", "La nota no se escapa: espera y escucha."],
+  ["struggle", "Prueba menos volumen y más espacio."],
+  ["struggle", "Tu voz puede reajustarse sin prisa."],
+  ["struggle", "El descanso entre intentos también enseña."],
+  ["success", "Ese ajuste fue preciso y tranquilo."],
+  ["success", "Tu coordinación está ganando estabilidad."],
+  ["success", "La voz se siente más libre cuando no la empujas."],
+  ["success", "Tu oído acaba de darte una buena pista."],
+  ["success", "Repite esta sensación cómoda."],
+  ["rest", "Un vaso de agua es parte de tu entrenamiento."],
+  ["rest", "Hoy cuidar la voz es el ejercicio correcto."],
+  ["range", "Tu mapa cambia cuando aprendes a escucharte."],
+  ["range", "Mide sin competir: la información te acompaña."],
 ];
 /** Selects a random phrase for a context. */
 export function phrase(context = "start") {
