@@ -1,4 +1,9 @@
-import { EXPRESS, ROUTINES, WARMUP, RoutineTimer } from "../timing.js";
+import {
+  EXPRESS,
+  ROUTINES,
+  WARMUP,
+  RoutineTimer,
+} from "../timing.js";
 import { evaluateBadges, phrase, updateStreak } from "../gamification.js";
 import { renderStages } from "./header.js";
 
@@ -88,8 +93,15 @@ export function initRoutine({
   });
 
   bus.addEventListener("stage:change", (event) => {
-    const stage = activeStages.find((item) => item.id === event.detail.to);
-    const exercise = stage?.exercises[0];
+    playStageBell();
+  });
+
+  bus.addEventListener("exercise:change", (event) => {
+    const stage = activeStages.find((item) => item.id === event.detail.stageId);
+    const exercise = stage?.exercises.find(
+      (item) => item.id === event.detail.to,
+    );
+    finalizeSiren();
     resetMetrics(exercise);
 
     if (exercise?.type === "pattern" && loadRoutineExercise) {
@@ -106,7 +118,6 @@ export function initRoutine({
     if (routineId === "laxvox") {
       document.getElementById("motivation").textContent = phrase("laxvox");
     }
-    playStageBell();
   });
 
   bus.addEventListener("pitch:frame", (event) => {
@@ -123,6 +134,7 @@ export function initRoutine({
   }
 
   bus.addEventListener("routine:complete", () => {
+    finalizeSiren();
     store.update((state) => {
       updateStreak(state);
       const durationSec = activeStages.reduce(
@@ -138,6 +150,15 @@ export function initRoutine({
         badges: [],
       });
       state.stats.totalActiveSec += durationSec;
+      state.stats.routinesCompleted ??= {};
+      state.stats.routinesCompleted[routineId] =
+        (state.stats.routinesCompleted[routineId] || 0) + 1;
+      if (routineId === "cooldown") {
+        state.stats.cooldownRoutinesCompleted += 1;
+      }
+      if (routineId === "agility") {
+        state.stats.agilityRoutinesCompleted += 1;
+      }
       if (routineId === "laxvox") {
         state.stats.laxvoxRoutinesCompleted += 1;
       }
@@ -162,6 +183,7 @@ export function initRoutine({
   });
 
   function stop() {
+    finalizeSiren();
     routine.stop();
     document.getElementById("routine-start").disabled = false;
     document.getElementById("routine-express").disabled = false;
@@ -191,6 +213,12 @@ export function initRoutine({
       sustainBest: 0,
       sustainFrames: [],
       restUntil: 0,
+      glissandoMidi: [],
+      lastGlissandoAt: 0,
+      maxJumpCents: 0,
+      minMidi: Infinity,
+      maxMidi: -Infinity,
+      sirenFinalized: false,
     };
   }
 
@@ -205,10 +233,12 @@ export function initRoutine({
   }
 
   function updateMetrics(frame) {
-    const stage = activeStages.find(
-      (item) => item.exercises[0].id === metrics.exerciseId,
+    const stage = activeStages.find((item) =>
+      item.exercises.some((exercise) => exercise.id === metrics.exerciseId),
     );
-    const exercise = stage?.exercises[0];
+    const exercise = stage?.exercises.find(
+      (item) => item.id === metrics.exerciseId,
+    );
     if (!exercise) {
       return;
     }
@@ -221,6 +251,8 @@ export function initRoutine({
       updateSustain(frame, exercise, now);
     } else if (exercise.type === "breath") {
       updateBreath(frame, now);
+    } else if (exercise.type === "glissando") {
+      updateGlissando(frame, now);
     }
     renderRoutineFeedback(exercise);
   }
@@ -231,6 +263,51 @@ export function initRoutine({
       metrics.rmsActive += 1;
     }
     metrics.lastFrameAt = now;
+  }
+
+  function updateGlissando(frame, now) {
+    if (!frame.voiced || !Number.isFinite(frame.f0)) {
+      return;
+    }
+    const midi =
+      69 + 12 * Math.log2(frame.f0 / (store.state.settings.a4 || 440));
+    if (
+      metrics.lastGlissandoAt &&
+      now - metrics.lastGlissandoAt < 250 &&
+      metrics.glissandoMidi.length
+    ) {
+      metrics.maxJumpCents = Math.max(
+        metrics.maxJumpCents,
+        Math.abs(midi - metrics.glissandoMidi.at(-1)) * 100,
+      );
+    }
+    metrics.glissandoMidi.push(midi);
+    metrics.lastGlissandoAt = now;
+    metrics.minMidi = Math.min(metrics.minMidi, midi);
+    metrics.maxMidi = Math.max(metrics.maxMidi, midi);
+  }
+
+  function finalizeSiren() {
+    if (metrics.sirenFinalized || !metrics.glissandoMidi.length) {
+      return;
+    }
+    const history = store.state.range.history || [];
+    const range = history[history.length - 1];
+    const rangeSemitones =
+      Number(range?.highMidi) - Number(range?.lowMidi) || 12;
+    const coveragePct = Math.max(
+      0,
+      Math.min(1, (metrics.maxMidi - metrics.minMidi) / rangeSemitones),
+    );
+    store.update((state) => {
+      state.lastSiren = {
+        maxJumpCents: metrics.maxJumpCents,
+        coveragePct,
+        at: Date.now(),
+      };
+    });
+    metrics.sirenFinalized = true;
+    evaluateBadges(store.state, bus);
   }
 
   function updateOnsets(frame, exercise, now) {
@@ -356,6 +433,16 @@ export function initRoutine({
       element.textContent = `Sostenido ${Math.floor(
         Math.min(exercise.target, metrics.sustainBest || 0),
       )} s · mejor ${Math.floor(metrics.sustainBest || 0)} s`;
+    } else if (exercise.type === "glissando") {
+      const range = store.state.range.history.at(-1);
+      const rangeSemitones =
+        Number(range?.highMidi) - Number(range?.lowMidi) || 12;
+      const coverage = metrics.glissandoMidi.length
+        ? ((metrics.maxMidi - metrics.minMidi) / rangeSemitones) * 100
+        : 0;
+      element.textContent = `Cobertura del rango: ${Math.round(coverage)}%${
+        metrics.maxJumpCents > 300 ? " · Salto detectado" : ""
+      }`;
     } else if (exercise.detector === "rms") {
       const continuity = metrics.rmsSamples
         ? Math.round((metrics.rmsActive / metrics.rmsSamples) * 100)
@@ -388,7 +475,9 @@ export function initRoutine({
  */
 export function renderRoutine(detail, stages = WARMUP) {
   const stage = stages.find((item) => item.id === detail.stageId) || stages[0];
-  const exercise = stage.exercises[0];
+  const exercise =
+    stage.exercises.find((item) => item.id === detail.exerciseId) ||
+    stage.exercises[0];
 
   document.getElementById("stage-name").textContent = stage.name;
   document.getElementById("exercise-name").textContent = exercise.name;

@@ -235,6 +235,19 @@ export const ROUTINES = {
   laxvox: LAXVOX,
 };
 
+/** Labels and instructions shown by the routine selector. */
+export const ROUTINE_META = {
+  warmup: {
+    label: "Calentamiento (17 min)",
+    intro: "Calentamiento progresivo de respiración, SOVTE, resonancia y agilidad.",
+  },
+  laxvox: {
+    label: "Lax Vox (12 min)",
+    intro:
+      "Tubo de silicona 1–2 cm bajo el agua, labios sellados, mandíbula relajada.",
+  },
+};
+
 /** Five-minute routine for low-energy days. */
 export const EXPRESS = WARMUP.slice(0, 2).map((stage, index) => ({
   ...stage,
@@ -298,6 +311,7 @@ export class RoutineTimer extends EventTarget {
     this.lastTick = 0;
     this.routineId = "warmup";
     this.stages = WARMUP;
+    this.exerciseIndex = 0;
     bus.addEventListener("clock:tick", () => this.tick());
   }
   duration(stage) {
@@ -311,6 +325,7 @@ export class RoutineTimer extends EventTarget {
     this.routineId = routineId;
     this.stages = stageOverride || ROUTINES[routineId] || WARMUP;
     this.index = 0;
+    this.exerciseIndex = 0;
     this.clock ??= new MasterClock(this.audio.ctx, this.bus);
     this.running = true;
     this.clock.start();
@@ -321,6 +336,7 @@ export class RoutineTimer extends EventTarget {
         detail: { from: null, to: this.stages[this.index].id },
       }),
     );
+    this.dispatchExerciseChange(null);
     this.tick();
   }
   pause() {
@@ -331,6 +347,7 @@ export class RoutineTimer extends EventTarget {
     if (this.index < this.stages.length - 1) {
       const from = this.stages[this.index].id;
       this.index++;
+      this.exerciseIndex = 0;
       this.clock.reset();
       this.clock.start();
       this.bus.dispatchEvent(
@@ -338,6 +355,7 @@ export class RoutineTimer extends EventTarget {
           detail: { from, to: this.stages[this.index].id },
         }),
       );
+      this.dispatchExerciseChange(null);
       this.tick();
     } else this.finish();
   }
@@ -350,20 +368,54 @@ export class RoutineTimer extends EventTarget {
     if (!this.running) return;
     const stage = this.stages[this.index],
       elapsed = this.clock.elapsed,
-      remaining = Math.max(0, this.duration(stage) - elapsed),
-      progress = Math.min(1, elapsed / this.duration(stage));
+      stageDuration = this.duration(stage),
+      exerciseDuration = stageDuration / stage.exercises.length;
+    if (elapsed >= stageDuration) {
+      this.skip();
+      return;
+    }
+    const nextExerciseIndex = Math.min(
+      stage.exercises.length - 1,
+      Math.floor(elapsed / exerciseDuration),
+    );
+    if (nextExerciseIndex !== this.exerciseIndex) {
+      const from = stage.exercises[this.exerciseIndex]?.id || null;
+      this.exerciseIndex = nextExerciseIndex;
+      this.dispatchExerciseChange(from);
+    }
+    const exerciseElapsed =
+      elapsed - this.exerciseIndex * exerciseDuration;
+    const exerciseRemaining = Math.max(
+      0,
+      exerciseDuration - exerciseElapsed,
+    );
     this.bus.dispatchEvent(
       new CustomEvent("timer:tick", {
         detail: {
           elapsed,
-          remaining,
+          remaining: Math.max(0, stageDuration - elapsed),
           stageId: stage.id,
-          exerciseId: stage.exercises[0].id,
-          progress,
+          exerciseId: stage.exercises[this.exerciseIndex].id,
+          progress: Math.min(1, elapsed / stageDuration),
+          exerciseProgress: Math.min(1, exerciseElapsed / exerciseDuration),
+          exerciseRemaining,
         },
       }),
     );
-    if (elapsed >= this.duration(stage)) this.skip();
+  }
+  dispatchExerciseChange(from) {
+    const stage = this.stages[this.index];
+    const exercise = stage?.exercises[this.exerciseIndex];
+    if (!exercise) return;
+    this.bus.dispatchEvent(
+      new CustomEvent("exercise:change", {
+        detail: {
+          stageId: stage.id,
+          from,
+          to: exercise.id,
+        },
+      }),
+    );
   }
   finish() {
     this.running = false;
