@@ -17,7 +17,7 @@ export function alertUser(text) {
 /**
  * Renders the stage cards for the routine panel.
  */
-export function renderStages(stages = WARMUP, intro = "") {
+export function renderStages(stages = WARMUP) {
   const root = document.getElementById("stage-cards");
 
   root.innerHTML = stages.map(
@@ -30,8 +30,7 @@ export function renderStages(stages = WARMUP, intro = "") {
           </span>
         </div>
         <h3 class="mt-3 font-bold">${stage.name}</h3>
-              <p class="mt-2 text-sm text-slate-500">${stage.description}</p>
-              ${intro ? `<p class="mt-2 text-xs text-cyan-200">${intro}</p>` : ""}
+        <p class="mt-2 text-sm text-slate-500">${stage.description}</p>
         <div class="mt-4 text-sm text-cyan-300">${stage.minutes} min</div>
       </article>
     `,

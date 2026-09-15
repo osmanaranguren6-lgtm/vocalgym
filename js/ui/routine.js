@@ -19,7 +19,7 @@ export function initRoutine({
   let activeStages = ROUTINES[routineId] || WARMUP;
   let expressMode = false;
   let metrics = createMetrics(activeStages[0]?.exercises[0]);
-  renderStages(activeStages, routineIntro(routineId));
+  renderStages(activeStages);
   renderRoutineIntro(routineId);
   selectRoutineButton(routineId);
 
@@ -35,7 +35,7 @@ export function initRoutine({
     store.update((state) => {
       state.settings.routineId = routineId;
     });
-    renderStages(activeStages, routineIntro(routineId));
+    renderStages(activeStages);
     renderRoutineIntro(routineId);
     selectRoutineButton(routineId);
     resetMetrics(activeStages[0]?.exercises[0]);
@@ -45,7 +45,7 @@ export function initRoutine({
     expressMode = Boolean(stages);
     routineId = selectedId;
     activeStages = stages || ROUTINES[selectedId] || WARMUP;
-    renderStages(activeStages, routineIntro(stages ? "warmup" : selectedId));
+    renderStages(activeStages);
     renderRoutineIntro(stages ? "warmup" : selectedId);
     document
       .querySelectorAll(".routine-choice")
