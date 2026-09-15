@@ -18,6 +18,7 @@ import { initGuide } from "./js/ui/guide.js";
 import { initReminders } from "./js/reminders.js";
 import { initOnboarding } from "./js/ui/onboarding.js";
 import { initAnalysis } from "./js/analysis.js";
+import { initExport } from "./js/ui/export.js";
 
 const bus = new EventTarget();
 const store = createStorage();
@@ -132,6 +133,7 @@ function bootstrap() {
     activateMicrophone: shell.activateMicrophone,
   });
   initHistory({ store, bus });
+  initExport({ store, alertUser: shell.alertUser });
   initAnalysis({
     store,
     bus,

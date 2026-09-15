@@ -1,4 +1,4 @@
-const CACHE_NAME = "vocalgym-v08";
+const CACHE_NAME = "vocalgym-v09";
 const SHELL = [
   "./",
   "./index.html",
@@ -26,6 +26,7 @@ const SHELL = [
   "./js/ui/routine.js",
   "./js/ui/builder.js",
   "./js/ui/guide.js",
+  "./js/ui/export.js",
   "./js/ui/onboarding.js",
   "./js/ui/safety.js",
   "./js/ui/settings.js",
@@ -47,6 +48,7 @@ const SHELL = [
   "./assets/exercises/vi-va.musicxml",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
+  "./assets/songs/estrellita.musicxml",
 ];
 
 self.addEventListener("install", (event) => {

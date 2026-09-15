@@ -7,6 +7,7 @@ export function initRecordings({ audio, bus, alertUser }) {
   const recorder = new VoiceRecorder();
   const clips = [];
   let currentLabel = "";
+  let currentExerciseId = "";
   let currentStartedAt = 0;
   const urls = new Set();
   const list = document.getElementById("recordings-list");
@@ -32,6 +33,9 @@ export function initRecordings({ audio, bus, alertUser }) {
                   <span>${clip.duration}s</span>
                 </div>
                 <audio controls src="${clip.url}"></audio>
+                <a class="secondary-button" href="${clip.url}" download="${clip.filename}">
+                  Descargar
+                </a>
                 <button class="secondary-button recording-delete" type="button" data-recording-id="${clip.id}">
                   Borrar
                 </button>
@@ -45,7 +49,7 @@ export function initRecordings({ audio, bus, alertUser }) {
     });
   }
 
-  function add(blob, label, startedAt) {
+  function add(blob, label, exerciseId, startedAt) {
     if (!blob) {
       return;
     }
@@ -56,6 +60,7 @@ export function initRecordings({ audio, bus, alertUser }) {
       label,
       duration: Math.max(1, Math.round((performance.now() - startedAt) / 1000)),
       url,
+      filename: `vocalgym-${exerciseId.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${new Date().toTimeString().slice(0, 8).replaceAll(":", "")}.${blob.type.includes("mp4") ? "mp4" : blob.type.includes("ogg") ? "ogg" : "webm"}`,
     });
     render();
   }
@@ -77,24 +82,28 @@ export function initRecordings({ audio, bus, alertUser }) {
     }
     const startedAt = currentStartedAt;
     const label = currentLabel;
+    const exerciseId = currentExerciseId;
     const blob = await recorder.stop();
     currentLabel = "";
+    currentExerciseId = "";
     currentStartedAt = 0;
-    add(blob, label || "Grabación manual", startedAt);
+    add(blob, label || "Grabación manual", exerciseId || "manual", startedAt);
     updateButtons();
   }
 
-  async function start(label) {
+  async function start(label, exerciseId = label) {
     if (!audio.stream) {
       alertUser("Activa el micrófono para grabar tu voz.");
       return false;
     }
     await stop();
     currentLabel = label;
+    currentExerciseId = exerciseId;
     currentStartedAt = performance.now();
     if (!recorder.start(audio.stream)) {
       alertUser("Las grabaciones no están disponibles en este navegador.");
       currentLabel = "";
+      currentExerciseId = "";
       currentStartedAt = 0;
       return false;
     }
@@ -111,7 +120,7 @@ export function initRecordings({ audio, bus, alertUser }) {
   manualButton?.addEventListener("click", async () => {
     try {
       await audio.start();
-      await start("Grabación del afinador");
+    await start("Grabación del afinador", "afinador");
     } catch (error) {
       alertUser(error.message);
     }
