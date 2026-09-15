@@ -375,6 +375,8 @@ select {
 }
 .modal {
   width: min(92vw, 34rem);
+  max-height: 90vh;
+  overflow: auto;
   border: 0;
   border-radius: 1.25rem;
   background: transparent;
@@ -554,6 +556,42 @@ select {
   }
 }
 @media (max-width: 640px) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab-list,
+  nav[role="tablist"] {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+  }
+  .tab-list::-webkit-scrollbar,
+  nav[role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+  .routine-choice {
+    min-width: max-content;
+  }
+  .stage-grid {
+    grid-template-columns: 1fr;
+  }
+  .timer-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .modal {
+    max-height: 90vh;
+    overflow: auto;
+  }
+  .primary-button,
+  .secondary-button,
+  .icon-button,
+  .tab-button {
+    min-height: 44px;
+  }
   .hero-orb {
     width: 5rem;
     height: 5rem;

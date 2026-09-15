@@ -1,4 +1,4 @@
-const CACHE_NAME = "vocalgym-v06";
+const CACHE_NAME = "vocalgym-v07";
 const SHELL = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const SHELL = [
   "./js/notation.js",
   "./js/pitch-worklet.js",
   "./js/recorder.js",
+  "./js/reminders.js",
   "./js/range.js",
   "./js/storage.js",
   "./js/timing.js",
@@ -22,6 +23,9 @@ const SHELL = [
   "./js/ui/rewards.js",
   "./js/ui/recordings.js",
   "./js/ui/routine.js",
+  "./js/ui/builder.js",
+  "./js/ui/guide.js",
+  "./js/ui/onboarding.js",
   "./js/ui/safety.js",
   "./js/ui/settings.js",
   "./js/ui/shell.js",
@@ -99,4 +103,14 @@ self.addEventListener("fetch", (event) => {
       return cached || network;
     }),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "reminder") {
+    event.waitUntil(
+      self.registration.showNotification?.("VocalGym", {
+        body: event.data.body,
+      }),
+    );
+  }
 });
