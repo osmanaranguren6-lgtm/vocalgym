@@ -1,4 +1,4 @@
-const CACHE_NAME = "vocalgym-v05";
+const CACHE_NAME = "vocalgym-v06";
 const SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const SHELL = [
   "./js/gamification.js",
   "./js/notation.js",
   "./js/pitch-worklet.js",
+  "./js/recorder.js",
   "./js/range.js",
   "./js/storage.js",
   "./js/timing.js",
@@ -19,11 +20,16 @@ const SHELL = [
   "./js/ui/pitch-monitor.js",
   "./js/ui/range.js",
   "./js/ui/rewards.js",
+  "./js/ui/recordings.js",
   "./js/ui/routine.js",
   "./js/ui/safety.js",
   "./js/ui/settings.js",
   "./js/ui/shell.js",
   "./assets/exercises/chromatic.musicxml",
+  "./assets/exercises/arpeggio-major.musicxml",
+  "./assets/exercises/scale-major.musicxml",
+  "./assets/exercises/scale-minor.musicxml",
+  "./assets/exercises/fifths-fast.musicxml",
   "./assets/exercises/laxvox-segundas.musicxml",
   "./assets/exercises/laxvox-segundas-dobles.musicxml",
   "./assets/exercises/laxvox-terceras.musicxml",

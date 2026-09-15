@@ -36,6 +36,22 @@ const EXERCISES = {
     title: "Lax Vox · Terceras dobles",
     url: "assets/exercises/laxvox-terceras-dobles.musicxml",
   },
+  "arpeggio-major": {
+    title: "Arpegio mayor",
+    url: "assets/exercises/arpeggio-major.musicxml",
+  },
+  "scale-major": {
+    title: "Escala mayor",
+    url: "assets/exercises/scale-major.musicxml",
+  },
+  "scale-minor": {
+    title: "Escala menor",
+    url: "assets/exercises/scale-minor.musicxml",
+  },
+  "fifths-fast": {
+    title: "Quintas rápidas",
+    url: "assets/exercises/fifths-fast.musicxml",
+  },
 };
 
 let osmdLibraryPromise = null;
@@ -343,7 +359,7 @@ export class NotationEngine {
       return null;
     }
 
-    const offset = rawHalfTone < 60 ? 12 : 0;
+    const offset = 12;
     const midi = rawHalfTone + offset;
     return applyTranspose ? midi + this.transpose : midi;
   }
@@ -404,8 +420,7 @@ export class NotationEngine {
       hasTransposeCalculator: Boolean(this.osmd?.TransposeCalculator),
       hasSheetTranspose: "Transpose" in (this.osmd?.Sheet || {}),
       rawHalfTone,
-      pitchOffsetApplied:
-        Number.isFinite(rawHalfTone) && rawHalfTone < 60 ? 12 : 0,
+      pitchOffsetApplied: Number.isFinite(rawHalfTone) ? 12 : 0,
       notesUnderCursorCount: cursorNotes.length,
       notesUnderCursorHavePitch: Boolean(cursorNotes[0]?.Pitch?.getHalfTone),
       notesUnderCursorRawHalfTone: cursorRawHalfTone,

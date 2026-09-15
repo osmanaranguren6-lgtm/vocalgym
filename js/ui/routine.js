@@ -1,5 +1,6 @@
 import {
   EXPRESS,
+  ROUTINE_META,
   ROUTINES,
   WARMUP,
   RoutineTimer,
@@ -25,6 +26,7 @@ export function initRoutine({
   let activeStages = ROUTINES[routineId] || WARMUP;
   let expressMode = false;
   let metrics = createMetrics(activeStages[0]?.exercises[0]);
+  renderRoutineChoices();
   renderStages(activeStages);
   renderRoutineIntro(routineId);
   selectRoutineButton(routineId);
@@ -467,13 +469,18 @@ export function initRoutine({
   }
 
   function renderRoutineIntro(id) {
-    document.getElementById("routine-intro").textContent = routineIntro(id);
+    document.getElementById("routine-intro").textContent =
+      ROUTINE_META[id]?.intro || ROUTINE_META.warmup.intro;
   }
 
-  function routineIntro(id) {
-    return id === "laxvox"
-      ? "Tubo de silicona 1–2 cm bajo el agua, labios sellados, mandíbula relajada."
-      : "Calentamiento progresivo de respiración, SOVTE, resonancia y agilidad.";
+  function renderRoutineChoices() {
+    const root = document.getElementById("routine-selector");
+    root.innerHTML = Object.entries(ROUTINE_META)
+      .map(
+        ([id, meta]) =>
+          `<button type="button" class="routine-choice" data-routine-id="${id}">${meta.label}</button>`,
+      )
+      .join("");
   }
 
   function selectRoutineButton(id) {

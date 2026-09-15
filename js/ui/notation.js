@@ -9,6 +9,10 @@ const ROUTINE_EXERCISES = {
   "laxvox-segundas-dobles": "laxvox-segundas-dobles",
   "laxvox-terceras": "laxvox-terceras",
   "laxvox-terceras-dobles": "laxvox-terceras-dobles",
+  "arpeggio-major": "arpeggio-major",
+  "scale-major": "scale-major",
+  "scale-minor": "scale-minor",
+  "fifths-fast": "fifths-fast",
 };
 
 /**

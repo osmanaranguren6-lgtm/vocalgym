@@ -229,10 +229,180 @@ export const LAXVOX = [
   },
 ];
 
+/** Five-minute vocal cooldown routine. */
+export const COOLDOWN = [
+  {
+    id: "cooldown-sirens",
+    name: "Sirenas descendentes suaves",
+    minutes: 2,
+    color: "cyan",
+    description: "Desliza de agudo a grave, muy suave, como un suspiro.",
+    exercises: [
+      {
+        id: "cooldown-sirens",
+        name: "Sirenas descendentes suaves",
+        type: "glissando",
+        instruction: "Desliza de agudo a grave, muy suave, como un suspiro",
+      },
+    ],
+  },
+  {
+    id: "cooldown-humming",
+    name: "Humming grave",
+    minutes: 2,
+    color: "violet",
+    description: "Mmm cómodo en tu zona grave, sin empujar.",
+    exercises: [
+      {
+        id: "cooldown-humming",
+        name: "Humming grave",
+        type: "sustain",
+        target: 15,
+        instruction: "Mmm cómodo en tu zona grave, sin empujar",
+      },
+    ],
+  },
+  {
+    id: "cooldown-breath",
+    name: "Respiración de cierre",
+    minutes: 1,
+    color: "fuchsia",
+    description: "Inhala 4, exhala 8, hombros sueltos.",
+    exercises: [
+      {
+        id: "cooldown-breath",
+        name: "Respiración de cierre",
+        type: "breath",
+        instruction: "Inhala 4, exhala 8, hombros sueltos",
+      },
+    ],
+  },
+];
+
+/** Ten-minute advanced agility routine. */
+export const AGILITY = [
+  {
+    id: "agility-arpeggio",
+    name: "Arpegio mayor",
+    minutes: 2.5,
+    color: "cyan",
+    description: "Recorre el arpegio con ligereza.",
+    exercises: [
+      {
+        id: "arpeggio-major",
+        name: "Arpegio mayor",
+        type: "pattern",
+        bpm: 100,
+        instruction: "Canta con sílabas ia, ligero y preciso.",
+      },
+    ],
+  },
+  {
+    id: "agility-scale-major",
+    name: "Escala mayor",
+    minutes: 2.5,
+    color: "violet",
+    description: "Sube y baja la escala mayor.",
+    exercises: [
+      {
+        id: "scale-major",
+        name: "Escala mayor",
+        type: "pattern",
+        bpm: 105,
+        instruction: "Mantén la articulación clara y cómoda.",
+      },
+    ],
+  },
+  {
+    id: "agility-scale-minor",
+    name: "Escala menor",
+    minutes: 2.5,
+    color: "fuchsia",
+    description: "Explora el color de la escala menor.",
+    exercises: [
+      {
+        id: "scale-minor",
+        name: "Escala menor",
+        type: "pattern",
+        bpm: 110,
+        instruction: "Deja que cada intervalo se acomode sin empujar.",
+      },
+    ],
+  },
+  {
+    id: "agility-fifths",
+    name: "Quintas rápidas",
+    minutes: 2.5,
+    color: "amber",
+    description: "Coordina quintas rápidas con precisión.",
+    exercises: [
+      {
+        id: "fifths-fast",
+        name: "Quintas rápidas",
+        type: "pattern",
+        bpm: 120,
+        instruction: "Mantén un pulso estable y una voz libre.",
+      },
+    ],
+  },
+];
+
+/** Six-minute guided siren routine. */
+export const SIRENS = [
+  {
+    id: "sirens-up",
+    name: "Sirena ascendente",
+    minutes: 2,
+    color: "cyan",
+    description: "Desliza de grave a agudo sin saltos bruscos.",
+    exercises: [
+      {
+        id: "sirens-up",
+        name: "Sirena ascendente",
+        type: "glissando",
+        instruction: "Desliza de grave a agudo con suavidad.",
+      },
+    ],
+  },
+  {
+    id: "sirens-down",
+    name: "Sirena descendente",
+    minutes: 2,
+    color: "violet",
+    description: "Desliza de agudo a grave con calma.",
+    exercises: [
+      {
+        id: "sirens-down",
+        name: "Sirena descendente",
+        type: "glissando",
+        instruction: "Desliza de agudo a grave con suavidad.",
+      },
+    ],
+  },
+  {
+    id: "sirens-full",
+    name: "Sirena completa ↑↓",
+    minutes: 2,
+    color: "fuchsia",
+    description: "Une subida y bajada en un solo gesto.",
+    exercises: [
+      {
+        id: "sirens-full",
+        name: "Sirena completa ↑↓",
+        type: "glissando",
+        instruction: "Sube y baja por tu rango con suavidad.",
+      },
+    ],
+  },
+];
+
 /** Available routine definitions keyed by their persisted identifier. */
 export const ROUTINES = {
   warmup: WARMUP,
   laxvox: LAXVOX,
+  cooldown: COOLDOWN,
+  agility: AGILITY,
+  sirens: SIRENS,
 };
 
 /** Labels and instructions shown by the routine selector. */
@@ -245,6 +415,18 @@ export const ROUTINE_META = {
     label: "Lax Vox (12 min)",
     intro:
       "Tubo de silicona 1–2 cm bajo el agua, labios sellados, mandíbula relajada.",
+  },
+  cooldown: {
+    label: "Enfriamiento (5 min)",
+    intro: "Cierra tu práctica con sonidos suaves, cómodos y sin empujar.",
+  },
+  agility: {
+    label: "Agilidad avanzada (10 min)",
+    intro: "Coordina patrones rápidos con precisión y ligereza.",
+  },
+  sirens: {
+    label: "Sirenas guiadas (6 min)",
+    intro: "Recorre tu rango con deslizamientos continuos y amables.",
   },
 };
 

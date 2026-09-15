@@ -73,6 +73,20 @@ export const BADGES = [
     description: "Completa diez rutinas Lax Vox.",
     rule: (s) => s.stats.laxvoxRoutinesCompleted >= 10,
   },
+  {
+    id: "cooldown_5",
+    name: "Cierre Consciente",
+    icon: "🌙",
+    description: "Completa cinco rutinas de enfriamiento.",
+    rule: (s) => s.stats.cooldownRoutinesCompleted >= 5,
+  },
+  {
+    id: "agility_5",
+    name: "Dedos de Voz",
+    icon: "⚡",
+    description: "Completa cinco rutinas de agilidad avanzada.",
+    rule: (s) => s.stats.agilityRoutinesCompleted >= 5,
+  },
 ];
 /** Motivational phrases grouped by application context. */
 export const PHRASES = [
