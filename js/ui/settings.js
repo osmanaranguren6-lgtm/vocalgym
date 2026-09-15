@@ -7,6 +7,7 @@ export function initSettings({
   pitchMonitor,
   tunerMonitor,
   alertUser,
+  reminders,
 }) {
   const dialog = document.getElementById("settings-dialog");
 
@@ -46,6 +47,12 @@ export function initSettings({
       document.getElementById("setting-gate-db").value = settings.gateDb;
       document.getElementById("setting-gate-db-value").textContent =
         `Umbral de silencio: ${settings.gateDb} dB`;
+      document.getElementById("setting-keep-awake").checked =
+        settings.keepAwake !== false;
+      document.getElementById("setting-reminder-enabled").checked =
+        Boolean(settings.reminder?.enabled);
+      document.getElementById("setting-reminder-time").value =
+        settings.reminder?.time || "19:00";
       await populateDevices();
       dialog.showModal();
     });
@@ -71,7 +78,20 @@ export function initSettings({
       state.settings.gateDb = Number(
         document.getElementById("setting-gate-db").value,
       );
+      state.settings.keepAwake = document.getElementById(
+        "setting-keep-awake",
+      ).checked;
+      state.settings.reminder.enabled = document.getElementById(
+        "setting-reminder-enabled",
+      ).checked;
+      state.settings.reminder.time = document.getElementById(
+        "setting-reminder-time",
+      ).value;
     });
+    if (store.state.settings.reminder.enabled) {
+      reminders?.requestPermission();
+    }
+    reminders?.check();
     audio?.applyConfig(store.state.settings);
     pitchMonitor.setA4(store.state.settings.a4);
     tunerMonitor.setA4(store.state.settings.a4);
@@ -102,6 +122,10 @@ export function initSettings({
 
   document.getElementById("import-data").addEventListener("click", () => {
     document.getElementById("import-file").click();
+  });
+  document.getElementById("open-onboarding").addEventListener("click", () => {
+    dialog.close();
+    window.dispatchEvent(new CustomEvent("onboarding:open"));
   });
 
   document

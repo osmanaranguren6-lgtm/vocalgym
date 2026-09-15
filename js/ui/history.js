@@ -167,6 +167,64 @@ export function initHistory({ store, bus }) {
     renderStats(store.state);
     renderScore(store.state);
     renderRange(store.state);
+    renderWeekly(store.state);
+  }
+
+  function renderWeekly(state) {
+    const now = Date.now();
+    const current = state.sessions.filter((session) => {
+      const age = now - new Date(session.date).getTime();
+      return age >= 0 && age < 7 * 86400000;
+    });
+    const previous = state.sessions.filter((session) => {
+      const age = now - new Date(session.date).getTime();
+      return age >= 7 * 86400000 && age < 14 * 86400000;
+    });
+    const summarize = (sessions) => ({
+      sessions: sessions.length,
+      minutes: Math.round(
+        sessions.reduce((total, item) => total + (item.durationSec || 0), 0) /
+          60,
+      ),
+      score: sessions.length
+        ? Math.round(
+            sessions.reduce((total, item) => total + (item.score || 0), 0) /
+              sessions.length,
+          )
+        : 0,
+      streak: Math.round(
+        Math.max(...sessions.map((item) => item.greenStreakMs || 0), 0) / 1000,
+      ),
+    });
+    const currentStats = summarize(current);
+    const previousStats = summarize(previous);
+    const delta = (key) => currentStats[key] - previousStats[key];
+    const arrow = (value) => (value > 0 ? "▲" : value < 0 ? "▼" : "→");
+    const message =
+      currentStats.sessions > previousStats.sessions
+        ? "Constancia en alza"
+        : currentStats.sessions < previousStats.sessions
+          ? "Semana ligera, tu voz también descansa"
+          : "Ritmo estable";
+    document.getElementById("weekly-summary").innerHTML = `
+      <p class="eyebrow">Resumen semanal</p>
+      <h2 class="mt-2 text-xl font-bold">${message}</h2>
+      <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        ${[
+          ["Sesiones", currentStats.sessions],
+          ["Minutos activos", currentStats.minutes],
+          ["Puntaje medio", `${currentStats.score}%`],
+          ["Mejor verde", `${currentStats.streak} s`],
+        ]
+          .map(
+            ([label, value], index) =>
+              `<div class="stat-card"><span>${label}</span><strong>${value}</strong><small>${arrow(
+                delta(["sessions", "minutes", "score", "streak"][index]),
+              )} ${Math.abs(delta(["sessions", "minutes", "score", "streak"][index]))}</small></div>`,
+          )
+          .join("")}
+      </div>
+    `;
   }
 
   scoreCanvas.addEventListener("mousemove", (event) => {
