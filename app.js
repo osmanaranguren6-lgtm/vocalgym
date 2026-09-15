@@ -17,6 +17,7 @@ import { initBuilder } from "./js/ui/builder.js";
 import { initGuide } from "./js/ui/guide.js";
 import { initReminders } from "./js/reminders.js";
 import { initOnboarding } from "./js/ui/onboarding.js";
+import { initAnalysis } from "./js/analysis.js";
 
 const bus = new EventTarget();
 const store = createStorage();
@@ -131,6 +132,30 @@ function bootstrap() {
     activateMicrophone: shell.activateMicrophone,
   });
   initHistory({ store, bus });
+  initAnalysis({
+    store,
+    bus,
+    renderPressure: () =>
+      shell.alertUser(
+        "Parece que estás empujando: baja volumen y deja pasar más aire.",
+      ),
+    renderAnalysis: (vibrato, frame) => {
+      const vibratoNode = document.getElementById("analysis-vibrato");
+      const hnrLabel = document.getElementById("analysis-hnr-label");
+      const hnrBar = document.getElementById("analysis-hnr-bar");
+      if (vibratoNode) {
+        vibratoNode.textContent = vibrato
+          ? `Vibrato: ${vibrato.rate.toFixed(1)} Hz · ±${Math.round(vibrato.extent)} cents`
+          : "Vibrato: —";
+      }
+      if (hnrLabel && Number.isFinite(frame.hnr)) {
+        const label =
+          frame.hnr < 8 ? "Con aire" : frame.hnr <= 15 ? "Mixto" : "Limpio";
+        hnrLabel.textContent = `${label} · ${frame.hnr.toFixed(1)} dB`;
+        hnrBar.style.width = `${Math.max(0, Math.min(100, (frame.hnr + 10) * 2))}%`;
+      }
+    },
+  });
   initSafety({
     store,
     routine,

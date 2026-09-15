@@ -62,11 +62,13 @@ class PitchProcessor extends AudioWorkletProcessor {
     const rms = this.prepareSignal();
     let frequency = null;
     let clarity = 0;
+    let hnr = null;
 
     if (rms > this.rmsGate) {
       const result = this.detectPitch();
       frequency = result.frequency;
       clarity = result.clarity;
+      hnr = result.hnr;
     }
 
     const voiced = Boolean(
@@ -81,6 +83,7 @@ class PitchProcessor extends AudioWorkletProcessor {
       t: currentTime,
       f0: voiced ? frequency : null,
       clarity,
+      hnr,
       rms,
       voiced,
     });
@@ -121,7 +124,7 @@ class PitchProcessor extends AudioWorkletProcessor {
     const keyMaxima = this.findKeyMaxima(nsdf, maxTau);
 
     if (keyMaxima.length === 0) {
-      return { frequency: null, clarity: 0 };
+      return { frequency: null, clarity: 0, hnr: null };
     }
 
     const highest = Math.max(...keyMaxima.map((maximum) => maximum.value));
@@ -130,12 +133,14 @@ class PitchProcessor extends AudioWorkletProcessor {
     );
 
     if (!selected) {
-      return { frequency: null, clarity: 0 };
+      return { frequency: null, clarity: 0, hnr: null };
     }
 
+    const c = Math.max(0.0001, Math.min(0.9999, selected.value));
     return {
       frequency: sampleRate / selected.tau,
       clarity: selected.value,
+      hnr: Math.max(-10, Math.min(40, 10 * Math.log10(c / (1 - c)))),
     };
   }
 

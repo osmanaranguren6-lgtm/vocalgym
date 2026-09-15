@@ -21,6 +21,7 @@ export const defaults = () => ({
       lastFiredDate: "",
     },
     keepAwake: true,
+    adaptive: true,
   },
   streak: { current: 0, best: 0, lastDate: "", graceUsedWeekOf: "" },
   range: { history: [] },
@@ -35,11 +36,15 @@ export const defaults = () => ({
     laxvoxRoutinesCompleted: 0,
     cooldownRoutinesCompleted: 0,
     agilityRoutinesCompleted: 0,
+    pressureAlerts: 0,
     routinesCompleted: {},
   },
   badges: {},
   lastSiren: null,
   customRoutines: [],
+  analysis: {
+    rangeMap: {},
+  },
   onboarded: false,
 });
 /** Migrates persisted data into the current version-one schema. */
@@ -55,6 +60,11 @@ export function migrate(input) {
     range: { ...base.range, ...(input.range || {}) },
     stats: { ...base.stats, ...(input.stats || {}) },
     badges: { ...(input.badges || {}) },
+    analysis: {
+      ...base.analysis,
+      ...(input.analysis || {}),
+      rangeMap: { ...(input.analysis?.rangeMap || {}) },
+    },
     customRoutines: Array.isArray(input.customRoutines)
       ? input.customRoutines.slice(0, 20)
       : [],
