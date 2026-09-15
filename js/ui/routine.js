@@ -5,6 +5,7 @@ import {
   WARMUP,
   resolveRoutine,
   RoutineTimer,
+  adaptStep,
 } from "../timing.js";
 import { evaluateBadges, phrase, updateStreak } from "../gamification.js";
 import { renderStages } from "./header.js";
@@ -163,8 +164,45 @@ export function initRoutine({
     });
   }
 
+  bus.addEventListener("routine:loop", () => {
+    const exercise = activeStages
+      .flatMap((stage) => stage.exercises)
+      .find((item) => item.id === metrics.exerciseId);
+    if (!store.state.settings.adaptive || exercise?.type !== "pattern") {
+      return;
+    }
+    const current = metrics.perExercise[metrics.exerciseId] || {
+      id: metrics.exerciseId,
+      frames: 0,
+      accSum: 0,
+      greenMs: 0,
+    };
+    const result = adaptStep({
+      acc: (metrics.loopAccSum || 0) / Math.max(1, metrics.loopFrames || 0),
+      frames: metrics.loopFrames || 0,
+      bpm: current.bpm || exercise.bpm || 90,
+      baseBpm: exercise.bpm || 90,
+      transpose: current.transpose || 0,
+      stepUps: current.stepUps || 0,
+    });
+    metrics.loopFrames = 0;
+    metrics.loopAccSum = 0;
+    if (!result.message) {
+      return;
+    }
+    current.bpm = result.bpm;
+    current.transpose = result.transpose;
+    current.bpmDelta = result.bpm - (exercise.bpm || 90);
+    current.transposeDelta = result.transpose;
+    current.stepUps = result.stepUps;
+    metrics.perExercise[metrics.exerciseId] = current;
+    metronome?.setBpm(result.bpm);
+    document.getElementById("routine-feedback").textContent = result.message;
+  });
+
   bus.addEventListener("routine:complete", () => {
     finalizeSiren();
+    const summary = scoreSummary();
     store.update((state) => {
       updateStreak(state);
       const durationSec = activeStages.reduce(
@@ -174,12 +212,16 @@ export function initRoutine({
       state.sessions.push({
         date: new Date().toISOString(),
         durationSec,
-        score: 80,
-        perExercise: [],
-        greenStreakMs: 0,
+        score: summary.score,
+        perExercise: summary.perExercise,
+        greenStreakMs: summary.greenStreakMs,
         badges: [],
       });
       state.stats.totalActiveSec += durationSec;
+      state.stats.bestGreenStreakMs = Math.max(
+        state.stats.bestGreenStreakMs,
+        summary.greenStreakMs,
+      );
       state.stats.routinesCompleted ??= {};
       state.stats.routinesCompleted[routineId] =
         (state.stats.routinesCompleted[routineId] || 0) + 1;
@@ -196,13 +238,17 @@ export function initRoutine({
     bus.dispatchEvent(
       new CustomEvent("score:update", {
         detail: {
-          score: 80,
+          score: summary.score,
         },
       }),
     );
     evaluateBadges(store.state, bus);
     renderHeader();
-    alertUser("Rutina completada. Tu constancia cuenta.");
+    alertUser(
+      summary.score === null
+        ? "Sin datos de afinación esta vez"
+        : `Puntaje de afinación: ${summary.score}`,
+    );
     document
       .querySelectorAll(".routine-choice")
       .forEach((button) => (button.disabled = false));
@@ -258,6 +304,10 @@ export function initRoutine({
   function createMetrics(exercise) {
     return {
       exerciseId: exercise?.id || "",
+      perExercise: {},
+      bestGreenStreakMs: 0,
+      greenSince: 0,
+      lastGreenAt: 0,
       onsetCount: 0,
       onsetVoicedSince: 0,
       onsetCounted: false,
@@ -282,7 +332,10 @@ export function initRoutine({
   }
 
   function resetMetrics(exercise) {
+    const previous = metrics;
     metrics = createMetrics(exercise);
+    metrics.perExercise = previous?.perExercise || {};
+    metrics.bestGreenStreakMs = previous?.bestGreenStreakMs || 0;
     window.__routineMetrics = metrics;
     renderRoutineFeedback(exercise);
   }
@@ -302,6 +355,7 @@ export function initRoutine({
       return;
     }
     const now = frameNow();
+    updateScore(frame, now);
     if (exercise.type === "onsets") {
       updateOnsets(frame, exercise, now);
     } else if (exercise.type === "alternate") {
@@ -314,6 +368,79 @@ export function initRoutine({
       updateGlissando(frame, now);
     }
     renderRoutineFeedback(exercise);
+  }
+
+  function updateScore(frame, now) {
+    if (
+      !audio.target ||
+      !frame.voiced ||
+      !Number.isFinite(frame.cents) ||
+      !metrics.exerciseId
+    ) {
+      metrics.greenSince = 0;
+      metrics.lastGreenAt = 0;
+      return;
+    }
+    const current = metrics.perExercise[metrics.exerciseId] || {
+      id: metrics.exerciseId,
+      frames: 0,
+      accSum: 0,
+      greenMs: 0,
+    };
+    current.frames += 1;
+    current.accSum += Math.max(
+      0,
+      Math.min(1, 1 - Math.abs(frame.cents) / 50),
+    );
+    if (frame.zone === "green") {
+      if (!metrics.greenSince || !metrics.lastGreenAt) {
+        metrics.greenSince = now;
+      }
+      if (now - metrics.lastGreenAt <= 120) {
+        current.greenMs += Math.max(0, now - metrics.lastGreenAt);
+      }
+      metrics.bestGreenStreakMs = Math.max(
+        metrics.bestGreenStreakMs,
+        now - metrics.greenSince,
+      );
+      metrics.lastGreenAt = now;
+    } else {
+      metrics.greenSince = 0;
+      metrics.lastGreenAt = 0;
+    }
+    metrics.perExercise[metrics.exerciseId] = current;
+    metrics.loopFrames = (metrics.loopFrames || 0) + 1;
+    metrics.loopAccSum =
+      (metrics.loopAccSum || 0) +
+      Math.max(0, Math.min(1, 1 - Math.abs(frame.cents) / 50));
+  }
+
+  function scoreSummary() {
+    const perExercise = Object.values(metrics.perExercise)
+      .filter((item) => item.frames > 0)
+      .map((item) => ({
+        id: item.id,
+        score: Math.round((100 * item.accSum) / item.frames),
+        frames: item.frames,
+        greenMs: Math.round(item.greenMs),
+        ...(Number.isFinite(item.bpmDelta)
+          ? { bpmDelta: item.bpmDelta }
+          : {}),
+        ...(Number.isFinite(item.transposeDelta)
+          ? { transposeDelta: item.transposeDelta }
+          : {}),
+      }));
+    const frames = perExercise.reduce((total, item) => total + item.frames, 0);
+    const accSum = Object.values(metrics.perExercise).reduce(
+      (total, item) => total + item.accSum,
+      0,
+    );
+    return {
+      score: frames ? Math.round((100 * accSum) / frames) : null,
+      perExercise,
+      frames,
+      greenStreakMs: Math.round(metrics.bestGreenStreakMs),
+    };
   }
 
   function updateBreath(frame, now) {

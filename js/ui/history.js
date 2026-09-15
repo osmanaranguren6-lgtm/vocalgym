@@ -6,6 +6,7 @@ import { noteName } from "../audio.js";
 export function initHistory({ store, bus }) {
   const scoreCanvas = document.getElementById("history-score-chart");
   const rangeCanvas = document.getElementById("history-range-chart");
+  const rangeMapCanvas = document.getElementById("history-range-map-chart");
   const tooltip = document.getElementById("history-tooltip");
   let scorePoints = [];
 
@@ -47,7 +48,9 @@ export function initHistory({ store, bus }) {
   }
 
   function renderScore(state) {
-    const sessions = state.sessions.slice(-30);
+    const sessions = state.sessions
+      .filter((session) => Number.isFinite(session.score))
+      .slice(-30);
     scorePoints = [];
     if (!sessions.length) {
       empty(scoreCanvas, "Todavía no hay sesiones para mostrar.");
@@ -87,7 +90,7 @@ export function initHistory({ store, bus }) {
         sessions.length === 1
           ? pad.left + innerWidth / 2
           : pad.left + (innerWidth * index) / (sessions.length - 1);
-      const score = Math.max(0, Math.min(100, Number(session.score) || 0));
+      const score = Math.max(0, Math.min(100, Number(session.score)));
       const y = pad.top + innerHeight * (1 - score / 100);
       scorePoints.push({ x, y, session });
       if (!index) context.moveTo(x, y);
@@ -111,6 +114,45 @@ export function initHistory({ store, bus }) {
           height - 9,
         );
         context.fillStyle = "#e2e8f0";
+      }
+    });
+  }
+
+  function renderRangeMap(state) {
+    const map = state.analysis?.rangeMap || {};
+    const keys = Object.keys(map)
+      .map(Number)
+      .filter((midi) => midi >= 36 && midi <= 96)
+      .sort((a, b) => a - b);
+    if (!keys.length) {
+      empty(rangeMapCanvas, "Canta algunas notas para crear tu mapa.");
+      return;
+    }
+    const context = rangeMapCanvas.getContext("2d");
+    const { width, height } = resizeCanvas(rangeMapCanvas);
+    const pad = { left: 28, right: 12, top: 16, bottom: 26 };
+    const maxFrames = Math.max(...keys.map((midi) => map[midi].frames), 1);
+    const barWidth = Math.max(
+      3,
+      Math.min(18, (width - pad.left - pad.right) / keys.length - 3),
+    );
+    context.clearRect(0, 0, width, height);
+    keys.forEach((midi, index) => {
+      const item = map[midi];
+      const mean = item.accSum / Math.max(1, item.frames);
+      const logHeight =
+        Math.log1p(item.frames) / Math.log1p(maxFrames) *
+        (height - pad.top - pad.bottom);
+      const x =
+        pad.left +
+        ((width - pad.left - pad.right) * (index + 0.5)) / keys.length;
+      context.fillStyle = mean >= 0.8 ? "#22c55e" : mean >= 0.6 ? "#eab308" : "#ef4444";
+      context.fillRect(x - barWidth / 2, height - pad.bottom - logHeight, barWidth, logHeight);
+      if (midi % 12 === 0) {
+        context.fillStyle = "#94a3b8";
+        context.font = "10px system-ui";
+        context.textAlign = "center";
+        context.fillText(noteName(midi), x, height - 8);
       }
     });
   }
@@ -167,6 +209,7 @@ export function initHistory({ store, bus }) {
     renderStats(store.state);
     renderScore(store.state);
     renderRange(store.state);
+    renderRangeMap(store.state);
     renderWeekly(store.state);
   }
 
@@ -186,12 +229,15 @@ export function initHistory({ store, bus }) {
         sessions.reduce((total, item) => total + (item.durationSec || 0), 0) /
           60,
       ),
-      score: sessions.length
-        ? Math.round(
-            sessions.reduce((total, item) => total + (item.score || 0), 0) /
-              sessions.length,
-          )
-        : 0,
+      score: (() => {
+        const scored = sessions.filter((item) => Number.isFinite(item.score));
+        return scored.length
+          ? Math.round(
+              scored.reduce((total, item) => total + item.score, 0) /
+                scored.length,
+            )
+          : null;
+      })(),
       streak: Math.round(
         Math.max(...sessions.map((item) => item.greenStreakMs || 0), 0) / 1000,
       ),
@@ -213,7 +259,7 @@ export function initHistory({ store, bus }) {
         ${[
           ["Sesiones", currentStats.sessions],
           ["Minutos activos", currentStats.minutes],
-          ["Puntaje medio", `${currentStats.score}%`],
+          ["Puntaje medio", currentStats.score === null ? "—" : `${currentStats.score}%`],
           ["Mejor verde", `${currentStats.streak} s`],
         ]
           .map(
@@ -248,6 +294,7 @@ export function initHistory({ store, bus }) {
   const observer = new ResizeObserver(render);
   observer.observe(scoreCanvas);
   observer.observe(rangeCanvas);
+  observer.observe(rangeMapCanvas);
   document
     .querySelector('[data-tab="history"]')
     .addEventListener("click", render);
