@@ -396,6 +396,125 @@ export const SIRENS = [
   },
 ];
 
+const PASSAGGIO = [
+  {
+    id: "passaggio-siren",
+    name: "Sirena en 'ng'",
+    minutes: 2,
+    color: "cyan",
+    description: "Cruza el pasaje con suavidad.",
+    exercises: [{
+      id: "passaggio-siren",
+      name: "Sirena en 'ng'",
+      type: "glissando",
+      instruction: "Sirena suave en 'ng' cruzando el pasaje sin empujar",
+    }],
+  },
+  {
+    id: "octaves-gu",
+    name: "Octavas en 'gu'",
+    minutes: 3,
+    color: "violet",
+    description: "Coordina octavas con una sílaba ligera.",
+    exercises: [{
+      id: "octaves-gu",
+      name: "Octavas en 'gu'",
+      type: "pattern",
+      pattern: [0, 12, 0],
+      bpm: 72,
+      instruction: "Canta 'gu' con una octava elástica.",
+    }],
+  },
+  {
+    id: "fifths-down-mum",
+    name: "Quintas descendentes 'mum'",
+    minutes: 3,
+    color: "fuchsia",
+    description: "Desciende con claridad y calma.",
+    exercises: [{
+      id: "fifths-down-mum",
+      name: "Quintas descendentes 'mum'",
+      type: "pattern",
+      pattern: [7, 4, 0],
+      bpm: 84,
+      instruction: "Desciende en 'mum' sin empujar.",
+    }],
+  },
+  {
+    id: "passaggio-hum",
+    name: "Humming de cierre",
+    minutes: 2,
+    color: "amber",
+    description: "Cierra con una vibración cómoda.",
+    exercises: [{
+      id: "passaggio-hum",
+      name: "Humming de cierre",
+      type: "sustain",
+      instruction: "Mantén un humming cómodo y resonante.",
+    }],
+  },
+];
+
+const BELTING = [
+  {
+    id: "twang-nay",
+    name: "Twang 'nay'",
+    minutes: 2,
+    color: "cyan",
+    description: "Activa brillo sin apretar.",
+    exercises: [{
+      id: "twang",
+      name: "Twang 'nay'",
+      type: "pattern",
+      pattern: [0, 4, 7, 4, 0],
+      bpm: 90,
+      instruction: "Lleva brillo a 'nay' sin apretar.",
+    }],
+  },
+  {
+    id: "calls-hey",
+    name: "Llamadas 'hey'",
+    minutes: 3,
+    color: "violet",
+    description: "Coordina llamadas brillantes.",
+    exercises: [{
+      id: "calls-hey",
+      name: "Llamadas 'hey'",
+      type: "pattern",
+      pattern: [7, 7, 9, 7],
+      bpm: 96,
+      instruction: "Canta 'hey' claro y cómodo.",
+    }],
+  },
+  {
+    id: "belting-sustain",
+    name: "Sostenidos brillantes",
+    minutes: 2,
+    color: "fuchsia",
+    description: "Sostén una emisión firme y ligera.",
+    exercises: [{
+      id: "belting-sustain",
+      name: "Sostenidos brillantes",
+      type: "sustain",
+      targetSeconds: 8,
+      instruction: "Sostén un sonido brillante durante 8 segundos.",
+    }],
+  },
+  {
+    id: "belting-release",
+    name: "Descompresión: sirena descendente",
+    minutes: 1,
+    color: "amber",
+    description: "Suelta la voz al terminar.",
+    exercises: [{
+      id: "belting-release",
+      name: "Descompresión: sirena descendente",
+      type: "glissando",
+      instruction: "Desciende como un suspiro y deja pasar el aire.",
+    }],
+  },
+];
+
 /** Available routine definitions keyed by their persisted identifier. */
 export const ROUTINES = {
   warmup: WARMUP,
@@ -403,6 +522,8 @@ export const ROUTINES = {
   cooldown: COOLDOWN,
   agility: AGILITY,
   sirens: SIRENS,
+  passaggio: PASSAGGIO,
+  belting: BELTING,
 };
 
 /** Labels and instructions shown by the routine selector. */
@@ -427,6 +548,14 @@ export const ROUTINE_META = {
   sirens: {
     label: "Sirenas guiadas (6 min)",
     intro: "Recorre tu rango con deslizamientos continuos y amables.",
+  },
+  passaggio: {
+    label: "Passaggio y voz mixta (10 min)",
+    intro: "Cruza el pasaje con coordinación y sin empujar.",
+  },
+  belting: {
+    label: "Belting seguro (8 min)",
+    intro: "Busca brillo y presencia sin aumentar la presión.",
   },
 };
 
@@ -456,7 +585,46 @@ const EXERCISE_WHY = {
   "sirens-up": "Estira los pliegues en todo el rango y suaviza los pasajes entre registros.",
   "sirens-down": "Estira los pliegues en todo el rango y suaviza los pasajes entre registros.",
   "sirens-full": "Estira los pliegues en todo el rango y suaviza los pasajes entre registros.",
+  "passaggio-siren": "Suaviza el paso entre registros manteniendo el aire libre.",
+  "octaves-gu": "Coordina octavas con una vocalización ligera y estable.",
+  "fifths-down-mum": "Organiza el descenso y conserva una emisión cómoda.",
+  "passaggio-hum": "Cierra la práctica con resonancia suave y relajada.",
+  "calls-hey": "Entrena brillo y proyección sin empujar.",
+  "belting-sustain": "Sostén una voz brillante con apoyo equilibrado.",
+  "belting-release": "Libera presión mediante un descenso suave.",
 };
+
+/** Calculates one adaptive pattern step without mutating application state. */
+export function adaptStep({ acc, frames, bpm, baseBpm, transpose, stepUps }) {
+  if (frames < 20) {
+    return { bpm, transpose, stepUps, message: "" };
+  }
+  if (acc >= 0.85) {
+    const nextBpm = Math.min(baseBpm + 30, bpm + 6);
+    const nextStepUps = stepUps + (nextBpm > bpm ? 1 : 0);
+    const nextTranspose =
+      nextStepUps > stepUps && nextStepUps % 2 === 0
+        ? Math.min(5, transpose + 1)
+        : transpose;
+    return {
+      bpm: nextBpm,
+      transpose: nextTranspose,
+      stepUps: nextStepUps,
+      message: `Subimos un poco: ${nextBpm} BPM${nextTranspose > transpose ? ` · +${nextTranspose - transpose}` : ""}`,
+    };
+  }
+  if (acc < 0.6) {
+    const nextBpm = Math.max(baseBpm - 20, bpm - 6);
+    const nextTranspose = Math.max(-5, transpose - 1);
+    return {
+      bpm: nextBpm,
+      transpose: nextTranspose,
+      stepUps,
+      message: `Bajamos para asentar: ${nextBpm} BPM`,
+    };
+  }
+  return { bpm, transpose, stepUps, message: "" };
+}
 
 for (const routine of Object.values(ROUTINES)) {
   for (const stage of routine) {

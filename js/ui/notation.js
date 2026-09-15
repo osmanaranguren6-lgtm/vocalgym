@@ -13,6 +13,9 @@ const ROUTINE_EXERCISES = {
   "scale-major": "scale-major",
   "scale-minor": "scale-minor",
   "fifths-fast": "fifths-fast",
+  "octaves-gu": "octaves-gu",
+  "fifths-down-mum": "fifths-down-mum",
+  "calls-hey": "calls-hey",
 };
 
 /**

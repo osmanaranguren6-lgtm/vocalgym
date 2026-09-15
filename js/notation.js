@@ -52,6 +52,18 @@ const EXERCISES = {
     title: "Quintas rápidas",
     url: "assets/exercises/fifths-fast.musicxml",
   },
+  "octaves-gu": {
+    title: "Octavas en gu",
+    url: "assets/exercises/octaves-gu.musicxml",
+  },
+  "fifths-down-mum": {
+    title: "Quintas descendentes mum",
+    url: "assets/exercises/fifths-down-mum.musicxml",
+  },
+  "calls-hey": {
+    title: "Llamadas hey",
+    url: "assets/exercises/calls-hey.musicxml",
+  },
 };
 
 let osmdLibraryPromise = null;
@@ -682,6 +694,7 @@ export class NotationEngine {
       return;
     }
     this.lastRoutineAdvanceAt = now;
+    this.bus.dispatchEvent(new CustomEvent("routine:loop"));
 
     const baseMidis = this.timeline.flatMap((entry) => entry.midis);
     const highest = Math.max(...baseMidis) + this.routineShift;

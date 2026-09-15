@@ -49,6 +49,8 @@ export function initSettings({
         `Umbral de silencio: ${settings.gateDb} dB`;
       document.getElementById("setting-keep-awake").checked =
         settings.keepAwake !== false;
+      document.getElementById("setting-adaptive").checked =
+        settings.adaptive !== false;
       document.getElementById("setting-reminder-enabled").checked =
         Boolean(settings.reminder?.enabled);
       document.getElementById("setting-reminder-time").value =
@@ -80,6 +82,9 @@ export function initSettings({
       );
       state.settings.keepAwake = document.getElementById(
         "setting-keep-awake",
+      ).checked;
+      state.settings.adaptive = document.getElementById(
+        "setting-adaptive",
       ).checked;
       state.settings.reminder.enabled = document.getElementById(
         "setting-reminder-enabled",
