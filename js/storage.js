@@ -9,7 +9,7 @@ export const defaults = () => ({
     restAfterMin: 50,
     routineOverrides: {},
     deviceId: "",
-    accompanimentVol: -6,
+    accompanimentVol: -12,
   },
   streak: { current: 0, best: 0, lastDate: "", graceUsedWeekOf: "" },
   range: { history: [] },

@@ -9,6 +9,7 @@ import { initRoutine } from "./js/ui/routine.js";
 import { initSettings } from "./js/ui/settings.js";
 import { createShell } from "./js/ui/shell.js";
 import { renderHeader } from "./js/ui/header.js";
+import { initNotation } from "./js/ui/notation.js";
 
 const bus = new EventTarget();
 const store = createStorage();
@@ -53,6 +54,12 @@ function bootstrap() {
   });
 
   renderHeader(store.state);
+  const notation = initNotation({
+    bus,
+    store,
+    metronome,
+    alertUser: shell.alertUser,
+  });
   initRoutine({
     audio,
     bus,
@@ -60,6 +67,7 @@ function bootstrap() {
     activateMicrophone: shell.activateMicrophone,
     alertUser: shell.alertUser,
     renderHeader: shell.renderHeader,
+    loadRoutineExercise: notation.loadRoutineExercise,
   });
   initRange({
     audio,

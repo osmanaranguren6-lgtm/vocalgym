@@ -1,4 +1,3 @@
-import { freqFromMidi } from "../audio.js";
 import { WARMUP, RoutineTimer } from "../timing.js";
 import { evaluateBadges, phrase, updateStreak } from "../gamification.js";
 import { renderStages } from "./header.js";
@@ -13,11 +12,11 @@ export function initRoutine({
   activateMicrophone,
   alertUser,
   renderHeader,
+  loadRoutineExercise,
 }) {
   renderStages();
 
   const routine = new RoutineTimer(bus, audio, store.state);
-  let patternSynth = null;
 
   document
     .getElementById("routine-start")
@@ -47,8 +46,10 @@ export function initRoutine({
     const stage = WARMUP.find((item) => item.id === event.detail.to);
     const exercise = stage?.exercises[0];
 
-    if (exercise?.type === "pattern") {
-      patternSynth = playPattern(exercise, routine, store, bus, patternSynth);
+    if (exercise?.type === "pattern" && loadRoutineExercise) {
+      loadRoutineExercise(exercise.id).catch((error) =>
+        alertUser(error.message),
+      );
     }
 
     playStageBell();
@@ -108,57 +109,6 @@ export function renderRoutine(detail) {
   document.querySelectorAll(".stage-card").forEach((card) => {
     card.classList.toggle("current", card.id === `stage-card-${stage.id}`);
   });
-}
-
-/**
- * Schedules the current pattern and emits target notes for the monitor.
- */
-export function playPattern(exercise, routine, store, bus, patternSynth) {
-  if (!window.Tone || !routine.running) {
-    return;
-  }
-
-  const range = store.state.range.current || {
-    lowMidi: 48,
-    highMidi: 72,
-  };
-  const root = Math.round(
-    range.lowMidi + (range.highMidi - range.lowMidi) * 0.35,
-  );
-
-  patternSynth ??= new Tone.PolySynth(Tone.Synth, {
-    oscillator: { type: "sine" },
-    volume: -12,
-  }).toDestination();
-
-  exercise.pattern.forEach((step, index) => {
-    const midi = root + step;
-
-    window.setTimeout(
-      () => {
-        if (!routine.running) {
-          return;
-        }
-
-        const frequency = freqFromMidi(midi, store.state.settings.a4);
-        patternSynth.triggerAttackRelease(frequency, "4n");
-        bus.dispatchEvent(
-          new CustomEvent("note:target", {
-            detail: {
-              midi,
-              frequency,
-              startBeat: index,
-              durBeats: 1,
-              index,
-            },
-          }),
-        );
-      },
-      (index * 60000) / (exercise.bpm || 90),
-    );
-  });
-
-  return patternSynth;
 }
 
 /**

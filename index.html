@@ -61,9 +61,7 @@
         ><button class="tab-button" data-tab="range">Rango</button
         ><button class="tab-button" data-tab="metronome">Metrónomo</button
         ><button class="tab-button" data-tab="achievements">Logros</button
-        ><button class="tab-button" data-tab="scores">
-          Partituras <small>(próximamente)</small>
-        </button>
+        ><button class="tab-button" data-tab="scores">Partituras</button>
       </nav>
       <section id="tab-routine" class="tab-panel space-y-5">
         <div class="hero-panel">
@@ -163,6 +161,20 @@
               Te escucho cuando quieras
             </p>
           </div>
+        </div>
+        <div id="routine-notation-panel" class="panel hidden">
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <p class="eyebrow">Partitura de la etapa</p>
+              <h2 id="routine-notation-title" class="text-xl font-bold">
+                Preparando ejercicio
+              </h2>
+            </div>
+            <span id="routine-notation-status" class="text-xs text-slate-400">
+              Cargando…
+            </span>
+          </div>
+          <div id="routine-notation" class="notation-container small"></div>
         </div>
       </section>
       <section id="tab-tuner" class="tab-panel hidden space-y-5">
@@ -312,14 +324,90 @@
         </div>
       </section>
       <section id="tab-scores" class="tab-panel hidden">
-        <div class="panel placeholder-panel">
-          <span class="text-6xl">🎼</span>
-          <h1 class="mt-4 text-3xl font-black">Partituras</h1>
-          <p class="mt-2 text-slate-400">Partituras (próximamente)</p>
-          <p class="mt-4 max-w-md text-sm text-slate-500">
-            Los ejercicios de patrón ya incluyen acompañamiento de referencia.
-            El visor MusicXML llegará en una próxima versión.
-          </p>
+        <div class="panel">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="eyebrow">Notación musical</p>
+              <h1 class="mt-2 text-3xl font-black">Canta con partitura</h1>
+              <p class="mt-2 max-w-2xl text-slate-400">
+                Sigue el cursor, escucha una referencia suave y transpón el
+                ejercicio a tu zona cómoda.
+              </p>
+            </div>
+            <label class="secondary-button cursor-pointer">
+              Cargar MusicXML
+              <input
+                id="notation-upload"
+                class="hidden"
+                type="file"
+                accept=".musicxml,.xml,.mxl,application/vnd.recordare.musicxml+xml,application/vnd.recordare.musicxml"
+              />
+            </label>
+          </div>
+          <div class="mt-5 grid gap-3 lg:grid-cols-[1fr_auto]">
+            <div class="flex flex-wrap gap-2" id="notation-exercises">
+              <button
+                class="secondary-button notation-exercise active"
+                data-exercise="ming-oh"
+              >
+                Ming-oh
+              </button>
+              <button
+                class="secondary-button notation-exercise"
+                data-exercise="name-ney"
+              >
+                Name-Ney
+              </button>
+              <button
+                class="secondary-button notation-exercise"
+                data-exercise="vi-va"
+              >
+                Vi-Va
+              </button>
+              <button
+                class="secondary-button notation-exercise"
+                data-exercise="chromatic"
+              >
+                Cromático
+              </button>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+              <input id="notation-metronome" type="checkbox" />
+              Metrónomo durante la partitura
+            </label>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center gap-2">
+            <button id="notation-auto" class="primary-button">Auto</button>
+            <button id="notation-down-octave" class="secondary-button">
+              −8va
+            </button>
+            <button id="notation-down" class="secondary-button">−1</button>
+            <button id="notation-reset" class="secondary-button">
+              Restablecer
+            </button>
+            <button id="notation-up" class="secondary-button">+1</button>
+            <button id="notation-up-octave" class="secondary-button">
+              +8va
+            </button>
+            <button id="notation-play" class="primary-button">
+              ▶ Reproducir
+            </button>
+            <button id="notation-loop" class="secondary-button">
+              Repetir: sí
+            </button>
+            <button id="notation-stop" class="secondary-button">
+              ■ Detener
+            </button>
+          </div>
+          <div
+            id="notation-skeleton"
+            class="notation-skeleton mt-5"
+            aria-live="polite"
+          >
+            Cargando visor musical…
+          </div>
+          <div id="notation-status" class="mt-3 text-sm text-slate-400"></div>
+          <div id="notation-container" class="notation-container mt-5"></div>
         </div>
       </section>
     </main>
@@ -377,6 +465,20 @@
             <option value="">Predeterminado</option>
           </select></label
         >
+        <label class="field-label"
+          >Acompañamiento
+          <input
+            id="setting-accompaniment"
+            class="input-field"
+            type="range"
+            min="-24"
+            max="-6"
+            step="1"
+          />
+          <span id="setting-accompaniment-value" class="text-xs text-slate-400">
+            −12 dB
+          </span>
+        </label>
         <div class="mt-4 flex flex-wrap gap-2">
           <button type="button" id="export-data" class="secondary-button">
             Exportar datos</button

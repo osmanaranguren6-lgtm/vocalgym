@@ -1,0 +1,570 @@
+import { freqFromMidi } from "./audio.js";
+
+const OSMD_URL =
+  "https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.5.0/build/opensheetmusicdisplay.min.js";
+
+const EXERCISES = {
+  "ming-oh": {
+    title: "Ming-oh",
+    url: "assets/exercises/ming-oh.musicxml",
+  },
+  "name-ney": {
+    title: "Name-Ney",
+    url: "assets/exercises/name-ney.musicxml",
+  },
+  "vi-va": {
+    title: "Vi-Va",
+    url: "assets/exercises/vi-va.musicxml",
+  },
+  chromatic: {
+    title: "Cromático",
+    url: "assets/exercises/chromatic.musicxml",
+  },
+};
+
+let osmdLibraryPromise = null;
+
+/**
+ * Loads OpenSheetMusicDisplay once through a dynamic script tag.
+ */
+function loadOsmdLibrary() {
+  if (window.opensheetmusicdisplay) {
+    return Promise.resolve(window.opensheetmusicdisplay);
+  }
+
+  if (osmdLibraryPromise) {
+    return osmdLibraryPromise;
+  }
+
+  osmdLibraryPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = OSMD_URL;
+    script.async = true;
+    script.onload = () => {
+      if (window.opensheetmusicdisplay) {
+        resolve(window.opensheetmusicdisplay);
+      } else {
+        reject(
+          new Error("OSMD no quedó disponible después de cargar el script."),
+        );
+      }
+    };
+    script.onerror = () => {
+      reject(new Error("No se pudo cargar el visor de partituras."));
+    };
+    document.head.append(script);
+  });
+
+  return osmdLibraryPromise;
+}
+
+/**
+ * Renders and synchronizes one MusicXML score with Tone.Transport.
+ */
+export class NotationEngine {
+  constructor({ container, bus, getSettings, getRange, metronome = null }) {
+    this.container = container;
+    this.bus = bus;
+    this.getSettings = getSettings;
+    this.getRange = getRange;
+    this.metronome = metronome;
+    this.osmd = null;
+    this.source = null;
+    this.title = "";
+    this.transpose = 0;
+    this.timeline = [];
+    this.scheduleIds = [];
+    this.playing = false;
+    this.loop = true;
+    this.cursorIndex = -1;
+    this.renderTimer = null;
+    this.synth = null;
+    this.reverb = null;
+    this.routineProgression = null;
+    this.routineShift = 0;
+    this.routineDirection = 1;
+    this.apiFacts = {};
+  }
+
+  /**
+   * Loads the selected bundled exercise or a user-provided MusicXML string.
+   */
+  async loadExercise(exerciseId) {
+    const exercise = EXERCISES[exerciseId];
+
+    if (!exercise) {
+      throw new Error("No encontramos ese ejercicio.");
+    }
+
+    const response = await fetch(exercise.url);
+    const musicXml = await response.text();
+    return this.loadMusicXml(musicXml, exercise.title);
+  }
+
+  /**
+   * Loads and renders MusicXML from text.
+   */
+  async loadMusicXml(musicXml, title = "Partitura") {
+    const library = await loadOsmdLibrary();
+
+    if (!this.osmd) {
+      this.osmd = new library.OpenSheetMusicDisplay(this.container, {
+        backend: "svg",
+        autoResize: true,
+        drawTitle: false,
+        drawPartNames: false,
+        followCursor: true,
+        darkMode: true,
+        defaultColorNotehead: "#e2e8f0",
+        defaultColorStem: "#e2e8f0",
+        pageBackgroundColor: "transparent",
+      });
+      this.osmd.TransposeCalculator = new library.TransposeCalculator();
+    }
+
+    this.source = musicXml;
+    this.title = title;
+    await this.osmd.load(musicXml);
+    this.transpose = 0;
+    this.render();
+    this.inspectApi();
+    return this;
+  }
+
+  /**
+   * Schedules a debounced render after a transpose change.
+   */
+  scheduleRender() {
+    window.clearTimeout(this.renderTimer);
+    this.renderTimer = window.setTimeout(() => {
+      this.render();
+    }, 150);
+  }
+
+  /**
+   * Applies a semitone transpose and schedules a fresh SVG render.
+   */
+  setTranspose(semitones) {
+    this.transpose = Math.max(-24, Math.min(24, Math.round(semitones)));
+    this.routineShift = 0;
+    this.routineDirection = 1;
+
+    if (this.osmd?.Sheet) {
+      this.osmd.Sheet.Transpose = this.transpose;
+      this.scheduleRender();
+    }
+
+    this.bus.dispatchEvent(
+      new CustomEvent("transpose:change", {
+        detail: { semitones: this.transpose },
+      }),
+    );
+  }
+
+  /**
+   * Calculates the best transpose for the stored comfortable range.
+   */
+  autoTranspose(rootRatio = null) {
+    const notes = this.extractNoteMidis(false);
+    const range = this.getRange() || { lowMidi: 48, highMidi: 72 };
+    const comfortLow = range.lowMidi + 3;
+    const comfortHigh = range.highMidi - 3;
+
+    if (!notes.length) {
+      this.setTranspose(0);
+      return 0;
+    }
+
+    if (rootRatio !== null) {
+      const target =
+        range.lowMidi + (range.highMidi - range.lowMidi) * rootRatio;
+      const root = Math.min(...notes);
+      const candidate = Math.round(target - root);
+      this.setTranspose(candidate);
+      return this.transpose;
+    }
+
+    const candidates = [];
+
+    for (let semitones = -24; semitones <= 24; semitones += 1) {
+      const outside = notes.reduce((count, midi) => {
+        const transposed = midi + semitones;
+        return (
+          count + (transposed < comfortLow || transposed > comfortHigh ? 1 : 0)
+        );
+      }, 0);
+      candidates.push({ semitones, outside });
+    }
+
+    candidates.sort(
+      (first, second) =>
+        first.outside - second.outside ||
+        Math.abs(first.semitones) - Math.abs(second.semitones),
+    );
+    this.setTranspose(candidates[0].semitones);
+    return this.transpose;
+  }
+
+  /**
+   * Enables semitone-by-semitone routine progression within comfort bounds.
+   */
+  setRoutineProgression({ comfortLow, comfortHigh }) {
+    this.routineProgression = { comfortLow, comfortHigh };
+    this.routineShift = 0;
+    this.routineDirection = 1;
+  }
+
+  /**
+   * Renders the score and rebuilds its cursor timeline.
+   */
+  render() {
+    if (!this.osmd) {
+      return;
+    }
+
+    this.osmd.Sheet.Transpose = this.transpose;
+    this.osmd.updateGraphic();
+    this.osmd.render();
+    this.applyDarkSvgTheme();
+    this.buildTimeline();
+    this.osmd.cursor.show();
+    this.bus.dispatchEvent(
+      new CustomEvent("notation:rendered", {
+        detail: {
+          title: this.title,
+          transpose: this.transpose,
+          timeline: this.timeline,
+        },
+      }),
+    );
+  }
+
+  /**
+   * Applies dark-theme colors to OSMD-generated SVG elements.
+   */
+  applyDarkSvgTheme() {
+    this.container
+      .querySelectorAll("svg path, svg line, svg rect")
+      .forEach((element) => {
+        element.style.stroke = "#e2e8f0";
+        element.style.fill = element.tagName === "path" ? "#e2e8f0" : "none";
+      });
+    this.container.querySelectorAll("svg text").forEach((element) => {
+      element.style.fill = "#e2e8f0";
+    });
+  }
+
+  /**
+   * Builds the cursor timeline in quarter-note beats.
+   */
+  buildTimeline() {
+    this.timeline = [];
+    this.cursorIndex = -1;
+
+    if (!this.osmd?.cursor?.Iterator) {
+      return;
+    }
+
+    const cursor = this.osmd.cursor;
+    cursor.reset();
+    let index = 0;
+    while (!cursor.Iterator.EndReached && index < 1000) {
+      const timestamp = cursor.Iterator.currentTimeStamp;
+      const beats = Number(timestamp?.RealValue || 0) * 4;
+      const notes = cursor.NotesUnderCursor?.() || [];
+      const midis = notes
+        .map((note) => this.noteMidi(note, true))
+        .filter((midi) => Number.isFinite(midi));
+
+      this.timeline.push({
+        index,
+        beats,
+        midis,
+        transposed: this.transpose !== 0,
+      });
+      index += 1;
+      cursor.next();
+    }
+
+    this.timeline.forEach((entry, entryIndex) => {
+      const next = this.timeline[entryIndex + 1];
+      entry.durationBeats = Math.max(
+        0.25,
+        (next?.beats ?? entry.beats + 1) - entry.beats,
+      );
+    });
+    cursor.reset();
+    this.bus.dispatchEvent(
+      new CustomEvent("notation:timeline", {
+        detail: this.timeline,
+      }),
+    );
+  }
+
+  /**
+   * Returns a pitch MIDI value and records the verified OSMD pitch shape.
+   */
+  noteMidi(note, applyTranspose) {
+    const pitch = note?.Pitch;
+    const rawHalfTone = pitch?.getHalfTone?.();
+
+    if (!Number.isFinite(rawHalfTone)) {
+      return null;
+    }
+
+    const offset = rawHalfTone < 60 ? 12 : 0;
+    const midi = rawHalfTone + offset;
+    return applyTranspose ? midi + this.transpose : midi;
+  }
+
+  /**
+   * Extracts note MIDI values from the first OSMD instrument.
+   */
+  extractNoteMidis(applyTranspose = true) {
+    const voices = this.osmd?.Sheet?.Instruments?.[0]?.Voices || [];
+    const notes = [];
+
+    for (const voice of voices) {
+      for (const voiceEntry of voice.VoiceEntries || []) {
+        for (const note of voiceEntry.Notes || []) {
+          const midi = this.noteMidi(note, applyTranspose);
+          if (Number.isFinite(midi)) {
+            notes.push(midi);
+          }
+        }
+      }
+    }
+
+    return notes;
+  }
+
+  /**
+   * Records runtime OSMD API facts for diagnostics and verification.
+   */
+  inspectApi() {
+    const firstNote =
+      this.osmd?.Sheet?.Instruments?.[0]?.Voices?.[0]?.VoiceEntries?.[0]
+        ?.Notes?.[0];
+    const rawHalfTone = firstNote?.Pitch?.getHalfTone?.();
+    this.osmd?.cursor?.reset();
+    this.osmd?.cursor?.show();
+    const cursorNotes = this.osmd?.cursor?.NotesUnderCursor?.() || [];
+    const cursorRawHalfTone = cursorNotes[0]?.Pitch?.getHalfTone?.();
+    const currentTranspose = this.transpose;
+    let transposedCursorRawHalfTone = cursorRawHalfTone;
+
+    if (this.osmd?.Sheet) {
+      this.osmd.Sheet.Transpose = currentTranspose + 1;
+      this.osmd.updateGraphic();
+      this.osmd.render();
+      this.osmd.cursor.reset();
+      this.osmd.cursor.show();
+      transposedCursorRawHalfTone = this.osmd.cursor
+        .NotesUnderCursor?.()[0]
+        ?.Pitch?.getHalfTone?.();
+      this.osmd.Sheet.Transpose = currentTranspose;
+      this.osmd.updateGraphic();
+      this.osmd.render();
+      this.osmd.cursor.reset();
+      this.osmd.cursor.show();
+    }
+
+    this.apiFacts = {
+      hasTransposeCalculator: Boolean(this.osmd?.TransposeCalculator),
+      hasSheetTranspose: "Transpose" in (this.osmd?.Sheet || {}),
+      rawHalfTone,
+      pitchOffsetApplied:
+        Number.isFinite(rawHalfTone) && rawHalfTone < 60 ? 12 : 0,
+      notesUnderCursorCount: cursorNotes.length,
+      notesUnderCursorHavePitch: Boolean(cursorNotes[0]?.Pitch?.getHalfTone),
+      notesUnderCursorRawHalfTone: cursorRawHalfTone,
+      notesUnderCursorTransposedRawHalfTone: transposedCursorRawHalfTone,
+      notesUnderCursorUsesSheetTranspose:
+        transposedCursorRawHalfTone !== cursorRawHalfTone,
+    };
+    window.__notationApiFacts = this.apiFacts;
+  }
+
+  /**
+   * Starts playback and schedules cursor, target, and accompaniment events.
+   */
+  async play({ loop = true, useMetronome = false } = {}) {
+    if (!this.osmd || !window.Tone || !this.timeline.length) {
+      return;
+    }
+
+    if (this.renderTimer) {
+      window.clearTimeout(this.renderTimer);
+      this.renderTimer = null;
+      this.render();
+    }
+
+    await Tone.start();
+    this.stop();
+    this.loop = loop;
+    this.playing = true;
+    this.ensureSynth();
+    this.osmd.cursor.reset();
+    this.cursorIndex = -1;
+
+    if (useMetronome && this.metronome && !this.metronome.running) {
+      await this.metronome.toggle();
+    }
+
+    const last = this.timeline[this.timeline.length - 1];
+    const loopBeats = last.beats + last.durationBeats;
+    const loopSeconds = Tone.Time(`${loopBeats}*4n`).toSeconds();
+
+    this.timeline.forEach((entry) => {
+      const seconds = Tone.Time(`${entry.beats}*4n`).toSeconds();
+      const id = Tone.Transport.schedule(() => {
+        this.moveCursor(entry.index);
+        this.emitTargets(entry);
+      }, seconds);
+      this.scheduleIds.push(id);
+    });
+
+    if (loop) {
+      Tone.Transport.loop = true;
+      Tone.Transport.loopStart = 0;
+      Tone.Transport.loopEnd = loopSeconds;
+      if (this.routineProgression) {
+        const progressionId = Tone.Transport.scheduleRepeat(
+          () => this.advanceRoutineProgression(),
+          loopSeconds,
+        );
+        this.scheduleIds.push(progressionId);
+      }
+    } else {
+      Tone.Transport.loop = false;
+    }
+
+    Tone.Transport.start();
+    this.bus.dispatchEvent(
+      new CustomEvent("notation:play", {
+        detail: { title: this.title, transpose: this.transpose },
+      }),
+    );
+  }
+
+  /**
+   * Stops notation scheduling without stopping a shared metronome transport.
+   */
+  stop() {
+    if (window.Tone) {
+      this.scheduleIds.forEach((id) => Tone.Transport.clear(id));
+    }
+    this.scheduleIds = [];
+    this.playing = false;
+
+    if (this.osmd?.cursor) {
+      this.osmd.cursor.reset();
+      this.cursorIndex = -1;
+    }
+
+    if (window.Tone) {
+      Tone.Transport.loop = false;
+    }
+  }
+
+  /**
+   * Moves the visual cursor forward to a timeline entry.
+   */
+  moveCursor(index) {
+    if (!this.osmd?.cursor) {
+      return;
+    }
+
+    if (index < this.cursorIndex) {
+      this.osmd.cursor.reset();
+      this.cursorIndex = -1;
+    }
+
+    while (this.cursorIndex < index) {
+      this.osmd.cursor.next();
+      this.cursorIndex += 1;
+    }
+  }
+
+  /**
+   * Emits note targets and plays reference pitches for one timeline entry.
+   */
+  emitTargets(entry) {
+    entry.midis.forEach((baseMidi) => {
+      const midi = baseMidi + this.routineShift;
+      const frequency = freqFromMidi(midi, this.getSettings().a4);
+      this.bus.dispatchEvent(
+        new CustomEvent("note:target", {
+          detail: {
+            midi,
+            freq: frequency,
+            startBeat: entry.beats,
+            durBeats: entry.durationBeats,
+            index: entry.index,
+          },
+        }),
+      );
+      this.bus.dispatchEvent(
+        new CustomEvent("score:update", {
+          detail: {
+            midi,
+            source: "notation",
+          },
+        }),
+      );
+      this.synth?.triggerAttackRelease(
+        frequency,
+        `${Math.max(0.25, entry.durationBeats)}n`,
+      );
+    });
+  }
+
+  /**
+   * Advances routine pitch by one semitone and reverses at comfort bounds.
+   */
+  advanceRoutineProgression() {
+    if (!this.routineProgression || !this.timeline.length) {
+      return;
+    }
+
+    const baseMidis = this.timeline.flatMap((entry) => entry.midis);
+    const highest = Math.max(...baseMidis) + this.routineShift;
+    const lowest = Math.min(...baseMidis) + this.routineShift;
+
+    if (
+      this.routineDirection > 0 &&
+      highest >= this.routineProgression.comfortHigh
+    ) {
+      this.routineDirection = -1;
+    } else if (
+      this.routineDirection < 0 &&
+      lowest <= this.routineProgression.comfortLow
+    ) {
+      this.routineDirection = 1;
+    }
+
+    this.routineShift += this.routineDirection;
+  }
+
+  /**
+   * Creates the sine accompaniment through a shared reverb.
+   */
+  ensureSynth() {
+    if (this.synth || !window.Tone) {
+      return;
+    }
+
+    this.reverb = new Tone.Reverb(1.5).toDestination();
+    this.synth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: "sine" },
+      volume: this.getSettings().accompanimentVol ?? -12,
+    }).connect(this.reverb);
+  }
+}
+
+/**
+ * Returns the bundled exercise metadata.
+ */
+export function notationExercises() {
+  return { ...EXERCISES };
+}

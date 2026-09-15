@@ -11,6 +11,10 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
       document.getElementById("setting-a4").value = settings.a4;
       document.getElementById("setting-tolerance").value = settings.tolerance;
       document.getElementById("setting-rest").value = settings.restAfterMin;
+      document.getElementById("setting-accompaniment").value =
+        settings.accompanimentVol ?? -12;
+      document.getElementById("setting-accompaniment-value").textContent =
+        `${settings.accompanimentVol ?? -12} dB`;
 
       const devices =
         (await navigator.mediaDevices?.enumerateDevices?.()) || [];
@@ -38,10 +42,20 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
       state.settings.restAfterMin =
         Number(document.getElementById("setting-rest").value) || 50;
       state.settings.deviceId = document.getElementById("setting-device").value;
+      state.settings.accompanimentVol = Number(
+        document.getElementById("setting-accompaniment").value,
+      );
     });
     pitchMonitor.setA4(store.state.settings.a4);
     tunerMonitor.setA4(store.state.settings.a4);
   });
+
+  document
+    .getElementById("setting-accompaniment")
+    .addEventListener("input", (event) => {
+      document.getElementById("setting-accompaniment-value").textContent =
+        `${event.target.value} dB`;
+    });
 
   document.getElementById("export-data").addEventListener("click", () => {
     const link = document.createElement("a");

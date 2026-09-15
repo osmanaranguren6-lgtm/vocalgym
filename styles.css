@@ -372,6 +372,58 @@ select {
 .piano-key.black.in-range {
   background: #0f766e;
 }
+.notation-container {
+  min-height: 18rem;
+  overflow: auto;
+  border: 1px solid #1e293b;
+  border-radius: 1rem;
+  background: #020617;
+  padding: 1rem;
+}
+.notation-container.small {
+  min-height: 10rem;
+  max-height: 18rem;
+}
+.notation-container svg {
+  display: block;
+  min-width: 680px;
+  background: transparent;
+}
+.notation-container svg path,
+.notation-container svg line,
+.notation-container svg rect,
+.notation-container svg polygon {
+  stroke: #e2e8f0;
+}
+.notation-container svg text {
+  fill: #e2e8f0;
+}
+.notation-exercise.active {
+  border-color: var(--accent);
+  color: #cffafe;
+}
+.notation-skeleton {
+  min-height: 4rem;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #334155;
+  border-radius: 1rem;
+  color: #94a3b8;
+  background: linear-gradient(90deg, #0f172a 25%, #1e293b 50%, #0f172a 75%);
+  background-size: 200% 100%;
+  animation: notation-shimmer 1.4s linear infinite;
+}
+.notation-skeleton.hidden {
+  display: none;
+}
+@keyframes notation-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
 @keyframes pulse {
   from {
     transform: scale(1);
