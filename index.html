@@ -497,6 +497,18 @@
           ></div>
         </div>
         <div id="weekly-summary" class="panel"></div>
+        <div class="panel">
+          <p class="eyebrow">Compartir y exportar</p>
+          <h2 class="mt-2 text-xl font-bold">Lleva tu progreso contigo</h2>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button id="export-progress" class="secondary-button" type="button">
+              Tarjeta de progreso (PNG)
+            </button>
+            <button id="export-history-csv" class="secondary-button" type="button">
+              Historial (CSV)
+            </button>
+          </div>
+        </div>
         <div class="grid gap-5 lg:grid-cols-2">
           <div class="panel">
             <h2 class="text-xl font-bold">Puntaje por sesión</h2>
@@ -631,6 +643,15 @@
               >
                 Quintas rápidas
               </button>
+              <span class="basis-full mt-2 text-xs font-semibold uppercase tracking-wider text-cyan-300">
+                Canciones
+              </span>
+              <button
+                class="secondary-button notation-exercise"
+                data-exercise="estrellita"
+              >
+                Estrellita (demo)
+              </button>
             </div>
             <label class="flex items-center gap-2 text-sm text-slate-300">
               <input id="notation-metronome" type="checkbox" />
@@ -672,6 +693,22 @@
           </div>
           <div id="notation-status" class="mt-3 text-sm text-slate-400"></div>
           <div id="notation-container" class="notation-container mt-5"></div>
+          <div id="song-panel" class="panel mt-5 hidden">
+            <p class="eyebrow">Canción</p>
+            <div id="song-lyric-line" class="mt-2 text-3xl font-black">—</div>
+            <div id="song-phrases" class="mt-4 flex flex-wrap gap-2"></div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button id="song-repeat" class="secondary-button" type="button">
+                Repetir frase
+              </button>
+              <button id="song-all" class="secondary-button" type="button">
+                Toda la canción
+              </button>
+              <button id="song-karaoke" class="primary-button" type="button">
+                Karaoke
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </main>

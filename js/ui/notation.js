@@ -26,6 +26,9 @@ export function initNotation({ bus, store, metronome, alertUser }) {
   let routineEngine = null;
   let loaded = false;
   let waitForNote = false;
+  let songPhrases = [];
+  let activePhrase = 0;
+  const phraseScores = new Map();
 
   const getRange = () => store.state.range.current;
   const getSettings = () => store.state.settings;
@@ -63,6 +66,8 @@ export function initNotation({ bus, store, metronome, alertUser }) {
     setNotationStatus(
       `${engine.title} · transposición ${engine.transpose > 0 ? "+" : ""}${engine.transpose}`,
     );
+    const song = exerciseId === "estrellita";
+    document.getElementById("song-panel").classList.toggle("hidden", !song);
   }
 
   document
@@ -107,6 +112,7 @@ export function initNotation({ bus, store, metronome, alertUser }) {
           ? await file.arrayBuffer()
           : await file.text();
         await engine.loadMusicXml(source, file.name);
+        document.getElementById("song-panel").classList.remove("hidden");
         setNotationStatus(`${file.name} · transposición 0`);
       } catch (error) {
         setNotationStatus(error.message);
@@ -176,6 +182,77 @@ export function initNotation({ bus, store, metronome, alertUser }) {
       );
     }
   });
+
+  bus.addEventListener("notation:timeline", (event) => {
+    const detail = event.detail;
+    songPhrases = Array.isArray(detail) ? [] : detail.phrases || [];
+    if (!songPhrases.length) {
+      return;
+    }
+    phraseScores.clear();
+    renderSongPhrases();
+  });
+  bus.addEventListener("note:target", (event) => {
+    if (!songPhrases.length) {
+      return;
+    }
+    activePhrase = event.detail.phraseIndex || 0;
+    document.getElementById("song-lyric-line").textContent =
+      event.detail.lyric || songPhrases[activePhrase]?.text || "—";
+  });
+  bus.addEventListener("pitch:frame", (event) => {
+    const frame = event.detail;
+    if (!songPhrases.length || !frame.voiced || !Number.isFinite(frame.cents)) {
+      return;
+    }
+    const score = phraseScores.get(activePhrase) || { frames: 0, acc: 0 };
+    score.frames += 1;
+    score.acc += Math.max(0, Math.min(1, 1 - Math.abs(frame.cents) / 50));
+    phraseScores.set(activePhrase, score);
+    renderSongPhrases();
+  });
+
+  document.getElementById("song-repeat").addEventListener("click", () => {
+    const phrase = songPhrases[activePhrase];
+    if (!phrase || !window.Tone) {
+      return;
+    }
+    Tone.Transport.loopStart = phrase.startBeats;
+    Tone.Transport.loopEnd = phrase.endBeats;
+    Tone.Transport.loop = true;
+  });
+  document.getElementById("song-all").addEventListener("click", () => {
+    if (!window.Tone) {
+      return;
+    }
+    Tone.Transport.loopStart = 0;
+    Tone.Transport.loopEnd = 0;
+    Tone.Transport.loop = true;
+  });
+  document.getElementById("song-karaoke").addEventListener("click", async () => {
+    const engine = await ensureMainEngine();
+    await engine.play({ loop: true, waitForNote: false });
+  });
+
+  function renderSongPhrases() {
+    document.getElementById("song-phrases").innerHTML = songPhrases
+      .map((phrase) => {
+        const score = phraseScores.get(phrase.index);
+        const value = score?.frames
+          ? Math.round((100 * score.acc) / score.frames)
+          : null;
+        const color =
+          value === null ? "text-slate-300" : value >= 80 ? "text-green-300" : value >= 60 ? "text-yellow-300" : "text-red-300";
+        return `<button title="Toca para repetir" class="${color} secondary-button song-phrase" data-phrase="${phrase.index}">Frase ${phrase.index + 1}: ${value ?? "—"}</button>`;
+      })
+      .join("");
+    document.querySelectorAll(".song-phrase").forEach((button) => {
+      button.addEventListener("click", () => {
+        activePhrase = Number(button.dataset.phrase);
+        document.getElementById("song-repeat").click();
+      });
+    });
+  }
 
   async function loadRoutineExercise(exerciseId) {
     const bundledId = ROUTINE_EXERCISES[exerciseId];
