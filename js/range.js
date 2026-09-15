@@ -1,6 +1,81 @@
-import {midiFromFreq,noteName} from './audio.js';
-const VOICES=[['Bajo',40,64],['Barítono',43,67],['Tenor',48,72],['Alto / Contralto',53,77],['Mezzo-soprano',57,81],['Soprano',60,84]];
-const pct=(a,p)=>{const x=[...a].sort((u,v)=>u-v);return x[Math.min(x.length-1,Math.max(0,Math.floor((x.length-1)*p)))];};
-export function evaluateFrames(frames,a4=440){const voiced=frames.filter(f=>f.voiced&&f.f0);if(voiced.length<5)throw Error('No hay suficientes notas estables. Intenta sostener la voz un poco más.');const windows=[];for(let i=0;i<voiced.length;i+=Math.max(1,Math.round(250/(512/48000*1000)))){const w=voiced.slice(i,i+20);if(w.length<8)continue;const ms=w.map(x=>midiFromFreq(x.f0,a4));const avg=ms.reduce((a,b)=>a+b,0)/ms.length,sd=Math.sqrt(ms.reduce((a,b)=>a+(b-avg)**2,0)/ms.length);if(sd<.3)windows.push(avg)}if(!windows.length)throw Error('No encontramos una ventana estable. Busca una nota cómoda y repite.');return pct(windows,.1)}
-export function measure(lowFrames,highFrames,a4=440,highIsFalsetto=false){const lowMidi=evaluateFrames(lowFrames,a4),highMidi=evaluateFrames(highFrames,a4);const semitones=Math.max(0,12*(highMidi-lowMidi)),fMin=a4*2**((lowMidi-69)/12),fMax=a4*2**((highMidi-69)/12);const scores=VOICES.map(([name,l,h])=>({name,score:Math.abs(lowMidi-l)*.6+Math.abs(highMidi-h)*.4})).sort((a,b)=>a.score-b.score);return{fMin,fMax,semitones,octaves:semitones/12,lowMidi,highMidi,voiceType:scores[0].name,secondary:scores[1].name,highIsFalsetto,lowNote:noteName(Math.round(lowMidi)),highNote:noteName(Math.round(highMidi)),date:new Date().toISOString()}}
-export function pianoHTML(result){const lo=Math.floor(result.lowMidi)-3,hi=Math.ceil(result.highMidi)+3;let html='<div class="piano">';for(let m=lo;m<=hi;m++){const black=[1,3,6,8,10].includes((m%12+12)%12);html+=`<span class="piano-key ${black?'black':''} ${(m>=result.lowMidi&&m<=result.highMidi)?'in-range':''}" title="${noteName(m)}"></span>`}return html+'</div>'}
+import { midiFromFreq, noteName } from "./audio.js";
+const VOICES = [
+  ["Bajo", 40, 64],
+  ["Barítono", 43, 67],
+  ["Tenor", 48, 72],
+  ["Alto / Contralto", 53, 77],
+  ["Mezzo-soprano", 57, 81],
+  ["Soprano", 60, 84],
+];
+const pct = (a, p) => {
+  const x = [...a].sort((u, v) => u - v);
+  return x[Math.min(x.length - 1, Math.max(0, Math.floor((x.length - 1) * p)))];
+};
+/** Extracts a stable MIDI estimate from a pitch-frame recording. */
+export function evaluateFrames(frames, a4 = 440) {
+  const voiced = frames.filter((f) => f.voiced && f.f0);
+  if (voiced.length < 5)
+    throw Error(
+      "No hay suficientes notas estables. Intenta sostener la voz un poco más.",
+    );
+  const windows = [];
+  for (
+    let i = 0;
+    i < voiced.length;
+    i += Math.max(1, Math.round(250 / ((512 / 48000) * 1000)))
+  ) {
+    const w = voiced.slice(i, i + 20);
+    if (w.length < 8) continue;
+    const ms = w.map((x) => midiFromFreq(x.f0, a4));
+    const avg = ms.reduce((a, b) => a + b, 0) / ms.length,
+      sd = Math.sqrt(ms.reduce((a, b) => a + (b - avg) ** 2, 0) / ms.length);
+    if (sd < 0.3) windows.push(avg);
+  }
+  if (!windows.length)
+    throw Error(
+      "No encontramos una ventana estable. Busca una nota cómoda y repite.",
+    );
+  return pct(windows, 0.1);
+}
+/** Measures range endpoints and classifies the likely voice type. */
+export function measure(
+  lowFrames,
+  highFrames,
+  a4 = 440,
+  highIsFalsetto = false,
+) {
+  const lowMidi = evaluateFrames(lowFrames, a4),
+    highMidi = evaluateFrames(highFrames, a4);
+  const semitones = Math.max(0, 12 * (highMidi - lowMidi)),
+    fMin = a4 * 2 ** ((lowMidi - 69) / 12),
+    fMax = a4 * 2 ** ((highMidi - 69) / 12);
+  const scores = VOICES.map(([name, l, h]) => ({
+    name,
+    score: Math.abs(lowMidi - l) * 0.6 + Math.abs(highMidi - h) * 0.4,
+  })).sort((a, b) => a.score - b.score);
+  return {
+    fMin,
+    fMax,
+    semitones,
+    octaves: semitones / 12,
+    lowMidi,
+    highMidi,
+    voiceType: scores[0].name,
+    secondary: scores[1].name,
+    highIsFalsetto,
+    lowNote: noteName(Math.round(lowMidi)),
+    highNote: noteName(Math.round(highMidi)),
+    date: new Date().toISOString(),
+  };
+}
+/** Builds the horizontal piano visualization for a range result. */
+export function pianoHTML(result) {
+  const lo = Math.floor(result.lowMidi) - 3,
+    hi = Math.ceil(result.highMidi) + 3;
+  let html = '<div class="piano">';
+  for (let m = lo; m <= hi; m++) {
+    const black = [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
+    html += `<span class="piano-key ${black ? "black" : ""} ${m >= result.lowMidi && m <= result.highMidi ? "in-range" : ""}" title="${noteName(m)}"></span>`;
+  }
+  return html + "</div>";
+}

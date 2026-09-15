@@ -1,7 +1,123 @@
-export const BADGES=[{id:'diaphragm',name:'Dominador del Diafragma',icon:'🥇',rule:s=>s.stats.breathRoutinesCompleted>=5},{id:'siren',name:'Siren Master',icon:'🚀',rule:s=>s.lastSiren&&s.lastSiren.maxJumpCents<300&&s.lastSiren.coveragePct>=.6},{id:'steel',name:'Afinación de Acero',icon:'🎯',rule:s=>s.stats.bestGreenStreakMs>=10000},{id:'first_range',name:'Cartógrafo Vocal',icon:'🗺️',rule:s=>s.range?.history.length>=1},{id:'rest_respected',name:'Guardián de la Laringe',icon:'🛡️',rule:s=>s.stats.fullRestsTaken>=3},{id:'streak7',name:'Semana de Hierro',icon:'🔥',rule:s=>s.streak.best>=7},{id:'octave2',name:'Dos Octavas',icon:'🎹',rule:s=>s.range?.current?.semitones>=24},{id:'tempo200',name:'Velocista',icon:'⚡',rule:s=>s.stats.maxBpmCompleted>=200}];
-export const PHRASES=[['start','Cantar es coordinación muscular, no magia.'],['start','Hoy entrenas escucha y libertad.'],['start','Una respiración tranquila abre espacio.'],['start','Tu práctica empieza con curiosidad.'],['start','La constancia afina más que la prisa.'],['struggle','Permítete sonar imperfecto mientras descubres nuevos registros.'],['struggle','Busca comodidad; la voz no necesita empujones.'],['struggle','Acércate poco a poco, sin perseguir la nota.'],['struggle','Relaja, deja caer y vuelve a escuchar.'],['struggle','Cada ajuste pequeño también es progreso.'],['success','¡Ahí está! Tu oído y tu laringe se pusieron de acuerdo.'],['success','Tu centro aparece cuando le das tiempo.'],['success','Centrado: guarda esta sensación.'],['success','Cinco segundos de calma construyen coordinación.'],['success','Tu voz acaba de encontrar un camino claro.'],['rest','Los pliegues vocales se recuperan en silencio. Esto también es entrenar.'],['rest','Hidratarte y descansar también es técnica.'],['rest','El silencio cuida el instrumento.'],['range','Conocer tu rango es escucharte, no ponerte límites.'],['range','Tu tesitura es un mapa para practicar con seguridad.'],['range','Explorar con cuidado amplía tus opciones.']];
-export function phrase(context='start'){const a=PHRASES.filter(p=>p[0]===context);return (a[Math.floor(Math.random()*a.length)]||PHRASES[0])[1]}
-export function today(){return new Intl.DateTimeFormat('en-CA').format(new Date())}
-export function updateStreak(state){const now=today();if(state.streak.lastDate===now)return;const last=state.streak.lastDate?new Date(`${state.streak.lastDate}T12:00:00`):null;const days=last?Math.round((new Date(`${now}T12:00:00`)-last)/86400000):99;if(days===1)state.streak.current+=1;else if(days<=2&&!state.streak.graceUsedWeekOf){state.streak.current+=1;state.streak.graceUsedWeekOf=now.slice(0,7)}else state.streak.current=1;state.streak.lastDate=now;state.streak.best=Math.max(state.streak.best,state.streak.current)}
-export function evaluateBadges(state,bus){for(const b of BADGES)if(!state.badges[b.id]&&b.rule(state)){state.badges[b.id]=new Date().toISOString();bus.dispatchEvent(new CustomEvent('badge:unlocked',{detail:b}))}}
-export function scoreFrame(cents){return Math.max(0,Math.min(1,1-(Math.abs(cents)-15)/25))}
+/** Badge definitions and their unlock rules. */
+export const BADGES = [
+  {
+    id: "diaphragm",
+    name: "Dominador del Diafragma",
+    icon: "🥇",
+    rule: (s) => s.stats.breathRoutinesCompleted >= 5,
+  },
+  {
+    id: "siren",
+    name: "Siren Master",
+    icon: "🚀",
+    rule: (s) =>
+      s.lastSiren &&
+      s.lastSiren.maxJumpCents < 300 &&
+      s.lastSiren.coveragePct >= 0.6,
+  },
+  {
+    id: "steel",
+    name: "Afinación de Acero",
+    icon: "🎯",
+    rule: (s) => s.stats.bestGreenStreakMs >= 10000,
+  },
+  {
+    id: "first_range",
+    name: "Cartógrafo Vocal",
+    icon: "🗺️",
+    rule: (s) => s.range?.history.length >= 1,
+  },
+  {
+    id: "rest_respected",
+    name: "Guardián de la Laringe",
+    icon: "🛡️",
+    rule: (s) => s.stats.fullRestsTaken >= 3,
+  },
+  {
+    id: "streak7",
+    name: "Semana de Hierro",
+    icon: "🔥",
+    rule: (s) => s.streak.best >= 7,
+  },
+  {
+    id: "octave2",
+    name: "Dos Octavas",
+    icon: "🎹",
+    rule: (s) => s.range?.current?.semitones >= 24,
+  },
+  {
+    id: "tempo200",
+    name: "Velocista",
+    icon: "⚡",
+    rule: (s) => s.stats.maxBpmCompleted >= 200,
+  },
+];
+/** Motivational phrases grouped by application context. */
+export const PHRASES = [
+  ["start", "Cantar es coordinación muscular, no magia."],
+  ["start", "Hoy entrenas escucha y libertad."],
+  ["start", "Una respiración tranquila abre espacio."],
+  ["start", "Tu práctica empieza con curiosidad."],
+  ["start", "La constancia afina más que la prisa."],
+  [
+    "struggle",
+    "Permítete sonar imperfecto mientras descubres nuevos registros.",
+  ],
+  ["struggle", "Busca comodidad; la voz no necesita empujones."],
+  ["struggle", "Acércate poco a poco, sin perseguir la nota."],
+  ["struggle", "Relaja, deja caer y vuelve a escuchar."],
+  ["struggle", "Cada ajuste pequeño también es progreso."],
+  ["success", "¡Ahí está! Tu oído y tu laringe se pusieron de acuerdo."],
+  ["success", "Tu centro aparece cuando le das tiempo."],
+  ["success", "Centrado: guarda esta sensación."],
+  ["success", "Cinco segundos de calma construyen coordinación."],
+  ["success", "Tu voz acaba de encontrar un camino claro."],
+  [
+    "rest",
+    "Los pliegues vocales se recuperan en silencio. Esto también es entrenar.",
+  ],
+  ["rest", "Hidratarte y descansar también es técnica."],
+  ["rest", "El silencio cuida el instrumento."],
+  ["range", "Conocer tu rango es escucharte, no ponerte límites."],
+  ["range", "Tu tesitura es un mapa para practicar con seguridad."],
+  ["range", "Explorar con cuidado amplía tus opciones."],
+];
+/** Selects a random phrase for a context. */
+export function phrase(context = "start") {
+  const a = PHRASES.filter((p) => p[0] === context);
+  return (a[Math.floor(Math.random() * a.length)] || PHRASES[0])[1];
+}
+/** Returns today's date using the stable YYYY-MM-DD format. */
+export function today() {
+  return new Intl.DateTimeFormat("en-CA").format(new Date());
+}
+/** Updates the daily streak and weekly grace-day state. */
+export function updateStreak(state) {
+  const now = today();
+  if (state.streak.lastDate === now) return;
+  const last = state.streak.lastDate
+    ? new Date(`${state.streak.lastDate}T12:00:00`)
+    : null;
+  const days = last
+    ? Math.round((new Date(`${now}T12:00:00`) - last) / 86400000)
+    : 99;
+  if (days === 1) state.streak.current += 1;
+  else if (days <= 2 && !state.streak.graceUsedWeekOf) {
+    state.streak.current += 1;
+    state.streak.graceUsedWeekOf = now.slice(0, 7);
+  } else state.streak.current = 1;
+  state.streak.lastDate = now;
+  state.streak.best = Math.max(state.streak.best, state.streak.current);
+}
+/** Unlocks newly eligible badges and emits badge events. */
+export function evaluateBadges(state, bus) {
+  for (const b of BADGES)
+    if (!state.badges[b.id] && b.rule(state)) {
+      state.badges[b.id] = new Date().toISOString();
+      bus.dispatchEvent(new CustomEvent("badge:unlocked", { detail: b }));
+    }
+}
+/** Converts cents error into the non-punitive frame score. */
+export function scoreFrame(cents) {
+  return Math.max(0, Math.min(1, 1 - (Math.abs(cents) - 15) / 25));
+}

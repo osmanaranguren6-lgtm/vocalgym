@@ -1,3 +1,128 @@
-<!doctype html><meta charset="utf-8"><link rel="icon" href="data:,"><title>VocalGym pitch test</title><pre id="out">Ejecutando…</pre><script type="module">
-const out=document.querySelector('#out'),ctx=new AudioContext({sampleRate:48000});await ctx.resume();await ctx.audioWorklet.addModule('../js/pitch-worklet.js');const node=new AudioWorkletNode(ctx,'pitch-processor',{processorOptions:{bufferSize:2048,hop:512}}),osc=ctx.createOscillator(),gain=ctx.createGain(),silent=ctx.createGain();gain.gain.value=.3;silent.gain.value=0;const all=[];node.port.onmessage=e=>e.data.voiced&&all.push(e.data.f0);osc.connect(gain).connect(node).connect(silent).connect(ctx.destination);osc.frequency.setValueAtTime(220,ctx.currentTime);osc.start();setTimeout(()=>osc.frequency.setValueAtTime(440,ctx.currentTime),1600);setTimeout(()=>{osc.stop();node.disconnect();const lines=[`muestras: ${all.length}`];for(const expected of [220,440]){const candidates=all.filter(f=>Math.abs(1200*Math.log2(f/expected))<100),f=candidates.length?candidates.sort((a,b)=>Math.abs(a-expected)-Math.abs(b-expected))[Math.floor(candidates.length/2)]:NaN,c=Number.isFinite(f)?1200*Math.log2(f/expected):NaN;lines.push(`${expected} Hz → ${Number.isFinite(f)?f.toFixed(4):'sin muestra'} Hz (${Number.isFinite(c)?c.toFixed(3):'—'} cents) ${Number.isFinite(c)&&Math.abs(c)<=2?'PASS':'FAIL'}`)}out.textContent=lines.join('\n')+'\nFin.'},3500);
-</script>
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="data:," />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VocalGym pitch test</title>
+  </head>
+  <body>
+    <pre id="out">Ejecutando…</pre>
+
+    <script type="module">
+      const output = document.querySelector("#out");
+      const audioContext = new AudioContext({ sampleRate: 48000 });
+      const testCases = [
+        { name: "seno", frequency: 110, type: "sine" },
+        { name: "seno", frequency: 220, type: "sine" },
+        { name: "seno", frequency: 330, type: "sine" },
+        { name: "seno", frequency: 440, type: "sine" },
+        { name: "seno", frequency: 880, type: "sine" },
+        { name: "sierra", frequency: 220, type: "sawtooth" },
+      ];
+
+      await audioContext.resume();
+      await audioContext.audioWorklet.addModule("../js/pitch-worklet.js");
+
+      /**
+       * Returns the median of numeric values.
+       */
+      function median(values) {
+        const sorted = [...values].sort((a, b) => a - b);
+        return sorted[Math.floor(sorted.length / 2)];
+      }
+
+      /**
+       * Measures one oscillator waveform through the pitch worklet.
+       */
+      function measureOscillator(testCase) {
+        return new Promise((resolve) => {
+          const node = new AudioWorkletNode(audioContext, "pitch-processor", {
+            processorOptions: {
+              bufferSize: 2048,
+              hop: 512,
+            },
+          });
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const silentOutput = audioContext.createGain();
+          const detections = [];
+
+          gain.gain.value = 0.3;
+          silentOutput.gain.value = 0;
+
+          node.port.onmessage = (event) => {
+            if (event.data.voiced) {
+              detections.push(event.data.f0);
+            }
+          };
+
+          oscillator.type = testCase.type;
+          oscillator.frequency.value = testCase.frequency;
+          oscillator
+            .connect(gain)
+            .connect(node)
+            .connect(silentOutput)
+            .connect(audioContext.destination);
+          oscillator.start();
+
+          window.setTimeout(() => {
+            oscillator.stop();
+            node.disconnect();
+
+            resolve({
+              ...testCase,
+              detected: detections.length ? median(detections) : null,
+            });
+          }, 1800);
+        });
+      }
+
+      /**
+       * Formats and asserts the complete pitch test report.
+       */
+      function report(results) {
+        const lines = [`muestras: ${results.length}`];
+        let allPassed = true;
+
+        for (const result of results) {
+          const cents = result.detected
+            ? 1200 * Math.log2(result.detected / result.frequency)
+            : null;
+          const passed = cents !== null && Math.abs(cents) <= 2;
+
+          allPassed &&= passed;
+          lines.push(
+            `${result.name} ${result.frequency} Hz → ${
+              result.detected?.toFixed(4) ?? "sin muestra"
+            } Hz (${
+              cents === null ? "—" : cents.toFixed(3)
+            } cents) ${passed ? "PASS" : "FAIL"}`,
+          );
+        }
+
+        lines.push(allPassed ? "Fin. PASS" : "Fin. FAIL");
+        output.textContent = lines.join("\n");
+
+        if (!allPassed) {
+          throw new Error("Pitch detector failed the ±2 cents assertion.");
+        }
+      }
+
+      try {
+        const results = [];
+
+        for (const testCase of testCases) {
+          results.push(await measureOscillator(testCase));
+        }
+
+        report(results);
+      } catch (error) {
+        output.textContent += `\n${error.message}`;
+        console.error(error);
+      } finally {
+        await audioContext.close();
+      }
+    </script>
+  </body>
+</html>
