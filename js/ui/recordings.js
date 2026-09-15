@@ -120,7 +120,7 @@ export function initRecordings({ audio, bus, alertUser }) {
   manualButton?.addEventListener("click", async () => {
     try {
       await audio.start();
-    await start("Grabación del afinador", "afinador");
+      await start("Grabación del afinador", "afinador");
     } catch (error) {
       alertUser(error.message);
     }

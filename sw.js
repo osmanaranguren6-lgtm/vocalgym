@@ -1,4 +1,4 @@
-const CACHE_NAME = "vocalgym-v09";
+const CACHE_NAME = "vocalgym-v10";
 const SHELL = [
   "./",
   "./index.html",

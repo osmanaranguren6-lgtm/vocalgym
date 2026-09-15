@@ -140,6 +140,7 @@ export class NotationEngine {
     this.timeline = [];
     this.phrases = [];
     this.currentPhraseIndex = 0;
+    this.loopPhraseIndex = null;
     this.scheduleIds = [];
     this.playing = false;
     this.loop = true;
@@ -200,6 +201,7 @@ export class NotationEngine {
 
     this.source = musicXml;
     this.title = title;
+    this.loopPhraseIndex = null;
     await this.osmd.load(musicXml);
     this.transpose = 0;
     this.render();
@@ -307,6 +309,24 @@ export class NotationEngine {
     if (window.Tone) {
       Tone.Transport.bpm.value = this.bpm;
     }
+  }
+
+  /**
+   * Converts score beats using the active transport tempo.
+   */
+  beatsToSeconds(beats) {
+    if (!window.Tone) {
+      return 0;
+    }
+    return Number(beats) * Tone.Time("4n").toSeconds();
+  }
+
+  /**
+   * Returns the full score loop duration in transport seconds.
+   */
+  getLoopSeconds() {
+    const last = this.timeline.at(-1);
+    return last ? this.beatsToSeconds(last.beats + last.durationBeats) : 0;
   }
 
   /**
@@ -538,7 +558,8 @@ export class NotationEngine {
     const last = this.timeline[this.timeline.length - 1];
     const loopBeats = last.beats + last.durationBeats;
     const quarterSeconds = Tone.Time("4n").toSeconds();
-    const loopSeconds = loopBeats * quarterSeconds;
+    const loopSeconds = this.beatsToSeconds(loopBeats);
+    this.loopSeconds = loopSeconds;
     this.routineLoopSeconds = loopSeconds;
 
     this.timeline.forEach((entry) => {
@@ -598,6 +619,11 @@ export class NotationEngine {
     if (window.Tone) {
       Tone.Transport.loop = false;
     }
+    this.bus.dispatchEvent(
+      new CustomEvent("notation:stop", {
+        detail: { title: this.title },
+      }),
+    );
   }
 
   /**
@@ -711,6 +737,12 @@ export class NotationEngine {
    * Emits note targets and plays reference pitches for one timeline entry.
    */
   emitTargets(entry) {
+    if (
+      this.loopPhraseIndex !== null &&
+      entry.phraseIndex !== this.loopPhraseIndex
+    ) {
+      return;
+    }
     entry.midis.forEach((baseMidi) => {
       const midi = baseMidi + this.routineShift + this.adaptiveShift;
       const frequency = freqFromMidi(midi, this.getSettings().a4);

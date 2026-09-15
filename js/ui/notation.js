@@ -28,6 +28,8 @@ export function initNotation({ bus, store, metronome, alertUser }) {
   let waitForNote = false;
   let songPhrases = [];
   let activePhrase = 0;
+  let songPlaying = false;
+  let targetReceived = false;
   const phraseScores = new Map();
 
   const getRange = () => store.state.range.current;
@@ -192,17 +194,33 @@ export function initNotation({ bus, store, metronome, alertUser }) {
     phraseScores.clear();
     renderSongPhrases();
   });
+  bus.addEventListener("notation:play", () => {
+    songPlaying = true;
+    targetReceived = false;
+  });
+  bus.addEventListener("notation:stop", () => {
+    songPlaying = false;
+    targetReceived = false;
+  });
   bus.addEventListener("note:target", (event) => {
     if (!songPhrases.length) {
       return;
     }
+    targetReceived = true;
     activePhrase = event.detail.phraseIndex || 0;
     document.getElementById("song-lyric-line").textContent =
       event.detail.lyric || songPhrases[activePhrase]?.text || "—";
   });
   bus.addEventListener("pitch:frame", (event) => {
     const frame = event.detail;
-    if (!songPhrases.length || !frame.voiced || !Number.isFinite(frame.cents)) {
+    if (
+      !songPhrases.length ||
+      !songPlaying ||
+      !targetReceived ||
+      Tone.Transport.state !== "started" ||
+      !frame.voiced ||
+      !Number.isFinite(frame.cents)
+    ) {
       return;
     }
     const score = phraseScores.get(activePhrase) || { frames: 0, acc: 0 };
@@ -212,25 +230,30 @@ export function initNotation({ bus, store, metronome, alertUser }) {
     renderSongPhrases();
   });
 
-  document.getElementById("song-repeat").addEventListener("click", () => {
+  document.getElementById("song-repeat").addEventListener("click", async () => {
     const phrase = songPhrases[activePhrase];
     if (!phrase || !window.Tone) {
       return;
     }
-    Tone.Transport.loopStart = phrase.startBeats;
-    Tone.Transport.loopEnd = phrase.endBeats;
+    const engine = await ensureMainEngine();
+    engine.loopPhraseIndex = activePhrase;
+    Tone.Transport.loopStart = engine.beatsToSeconds(phrase.startBeats);
+    Tone.Transport.loopEnd = engine.beatsToSeconds(phrase.endBeats);
     Tone.Transport.loop = true;
   });
-  document.getElementById("song-all").addEventListener("click", () => {
+  document.getElementById("song-all").addEventListener("click", async () => {
     if (!window.Tone) {
       return;
     }
+    const engine = await ensureMainEngine();
+    engine.loopPhraseIndex = null;
     Tone.Transport.loopStart = 0;
-    Tone.Transport.loopEnd = 0;
+    Tone.Transport.loopEnd = engine.loopSeconds || engine.getLoopSeconds();
     Tone.Transport.loop = true;
   });
   document.getElementById("song-karaoke").addEventListener("click", async () => {
     const engine = await ensureMainEngine();
+    engine.loopPhraseIndex = null;
     await engine.play({ loop: true, waitForNote: false });
   });
 
