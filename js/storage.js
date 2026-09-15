@@ -15,6 +15,12 @@ export const defaults = () => ({
     recordExercises: false,
     clarity: 0.9,
     gateDb: -50,
+    reminder: {
+      enabled: false,
+      time: "19:00",
+      lastFiredDate: "",
+    },
+    keepAwake: true,
   },
   streak: { current: 0, best: 0, lastDate: "", graceUsedWeekOf: "" },
   range: { history: [] },
@@ -33,6 +39,8 @@ export const defaults = () => ({
   },
   badges: {},
   lastSiren: null,
+  customRoutines: [],
+  onboarded: false,
 });
 /** Migrates persisted data into the current version-one schema. */
 export function migrate(input) {
@@ -47,6 +55,9 @@ export function migrate(input) {
     range: { ...base.range, ...(input.range || {}) },
     stats: { ...base.stats, ...(input.stats || {}) },
     badges: { ...(input.badges || {}) },
+    customRoutines: Array.isArray(input.customRoutines)
+      ? input.customRoutines.slice(0, 20)
+      : [],
   };
   s.sessions = (input.sessions || []).slice(-365);
   s.range.history = (s.range.history || []).slice(-50);

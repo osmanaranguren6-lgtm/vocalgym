@@ -5,8 +5,10 @@
     <link rel="icon" href="data:," />
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="theme-color" content="#020617" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#020617" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <title>VocalGym</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/tone"></script>
@@ -68,6 +70,7 @@
         class="mb-6 flex gap-2 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-2"
       >
         <button class="tab-button active" data-tab="routine">Rutina</button
+        ><button class="tab-button" data-tab="builder">Mis rutinas</button
         ><button class="tab-button" data-tab="tuner">Afinador</button
         ><button class="tab-button" data-tab="range">Rango</button
         ><button class="tab-button" data-tab="metronome">Metrónomo</button
@@ -138,6 +141,12 @@
             <p id="exercise-instruction" class="mt-2 text-slate-400">
               Tu sesión incluye respiración, SOVTE, resonancia y agilidad.
             </p>
+            <details class="mt-3 text-sm text-slate-400">
+              <summary class="cursor-pointer text-cyan-200">
+                ¿Por qué sirve?
+              </summary>
+              <p id="exercise-why" class="mt-2"></p>
+            </details>
             <div id="routine-feedback" class="mt-3 text-sm text-cyan-200"></div>
             <div class="mt-6 flex flex-wrap gap-2">
               <button id="routine-start" class="primary-button">
@@ -213,7 +222,76 @@
           <div id="routine-notation" class="notation-container small"></div>
         </div>
       </section>
+      <section id="tab-builder" class="tab-panel hidden space-y-5">
+        <div class="panel">
+          <p class="eyebrow">Diseña tu práctica</p>
+          <h1 class="mt-2 text-3xl font-black">Mis rutinas</h1>
+          <p class="mt-2 text-slate-400">
+            Combina ejercicios existentes en una rutina breve y personal.
+          </p>
+          <div class="mt-5 grid gap-4 md:grid-cols-2">
+            <label class="field-label"
+              >Nombre<input id="builder-label" class="input-field" type="text"
+            /></label>
+            <label class="field-label"
+              >Introducción<input id="builder-intro" class="input-field" type="text"
+            /></label>
+          </div>
+          <div class="mt-5 flex flex-wrap items-end gap-3">
+            <label class="field-label max-w-xs"
+              >Duplicar preset<select id="builder-preset" class="input-field"></select
+            ></label>
+            <button id="builder-duplicate" class="secondary-button" type="button">
+              Duplicar preset…
+            </button>
+          </div>
+          <div id="builder-steps" class="mt-5 space-y-3"></div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button id="builder-add" class="secondary-button" type="button">
+              ＋ Añadir paso
+            </button>
+            <button id="builder-save" class="primary-button" type="button">
+              Guardar
+            </button>
+            <button id="builder-cancel" class="secondary-button hidden" type="button">
+              Cancelar edición
+            </button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2 class="text-xl font-bold">Rutinas guardadas</h2>
+          <div id="builder-saved" class="mt-4 space-y-3"></div>
+        </div>
+      </section>
       <section id="tab-tuner" class="tab-panel hidden space-y-5">
+        <div class="panel">
+          <p class="eyebrow">Nota guía</p>
+          <h2 class="mt-2 text-2xl font-bold">Practica con una referencia</h2>
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            <label class="field-label"
+              >Raíz<select id="guide-root" class="input-field"></select
+            ></label>
+            <label class="field-label"
+              >Modo<select id="guide-mode" class="input-field">
+                <option value="single">Nota única</option>
+                <option value="major">Escala mayor</option>
+                <option value="minor">Escala menor</option>
+                <option value="arpeggio">Arpegio</option>
+              </select></label
+            >
+          </div>
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button id="guide-play" class="primary-button" type="button">
+              ▶ Tocar
+            </button>
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+              <input id="guide-drone" type="checkbox" />
+              Drone
+            </label>
+    <span id="guide-status" class="text-sm text-slate-400"></span>
+    <span id="guide-target" class="text-sm font-semibold text-cyan-200"></span>
+          </div>
+        </div>
         <div class="panel">
           <p class="eyebrow">Afinador libre</p>
           <h1 class="mt-2 text-3xl font-black">Encuentra tu centro</h1>
@@ -376,6 +454,7 @@
             class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
           ></div>
         </div>
+        <div id="weekly-summary" class="panel"></div>
         <div class="grid gap-5 lg:grid-cols-2">
           <div class="panel">
             <h2 class="text-xl font-bold">Puntaje por sesión</h2>
@@ -574,7 +653,9 @@
       <form method="dialog" id="settings-form" class="panel w-full max-w-lg">
         <div class="flex items-center justify-between">
           <h2 class="text-2xl font-bold">Ajustes</h2>
-          <button class="icon-button" value="cancel">×</button>
+          <button id="onboarding-close" class="icon-button" type="button">
+            ×
+          </button>
         </div>
         <label class="field-label"
           >A4 (Hz)<input
@@ -636,6 +717,27 @@
           ><span>Esperar mi nota en rutinas</span>
           <input id="setting-wait-for-note" type="checkbox" />
         /></label>
+        <label class="field-label settings-toggle"
+          ><span>Mantener pantalla encendida</span>
+          <input id="setting-keep-awake" type="checkbox" />
+        /></label>
+        <label class="field-label settings-toggle"
+          ><span>Recordatorio diario</span>
+          <input id="setting-reminder-enabled" type="checkbox" />
+        /></label>
+        <label class="field-label"
+          >Hora del recordatorio<input
+            id="setting-reminder-time"
+            class="input-field"
+            type="time"
+            value="19:00"
+          /></label>
+        <p class="text-xs text-slate-500">
+          En iOS, instala la app en la pantalla de inicio para recibir avisos.
+        </p>
+        <button id="open-onboarding" type="button" class="secondary-button">
+          Ver guía de inicio
+        </button>
         <div class="mt-4 flex flex-wrap gap-2">
           <button type="button" id="export-data" class="secondary-button">
             Exportar datos</button
@@ -652,6 +754,28 @@
           <button class="secondary-button" value="cancel">Cancelar</button
           ><button id="save-settings" class="primary-button" value="default">
             Guardar
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="onboarding-dialog" class="modal">
+      <form method="dialog" id="onboarding-form" class="panel w-full max-w-lg">
+        <div class="flex items-center justify-between">
+          <p class="eyebrow">Primeros pasos</p>
+          <button class="icon-button" value="cancel">×</button>
+        </div>
+        <div class="mt-4 flex gap-2" aria-label="Progreso">
+          <span class="onboarding-dot active"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+        </div>
+        <div id="onboarding-step" class="mt-6"></div>
+        <div class="mt-6 flex flex-wrap justify-between gap-2">
+          <button id="onboarding-skip" class="secondary-button" type="button">
+            Saltar
+          </button>
+          <button id="onboarding-next" class="primary-button" type="button">
+            Continuar
           </button>
         </div>
       </form>

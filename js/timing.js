@@ -430,6 +430,72 @@ export const ROUTINE_META = {
   },
 };
 
+const EXERCISE_WHY = {
+  hiss: "Entrena el control del aire: una salida constante es la base de una emisión sin tensión.",
+  liproll: "Coordina aire y vibración con poca presión para preparar una fonación cómoda.",
+  siren: "Estira los pliegues en todo el rango y suaviza los pasajes entre registros.",
+  mingoh: "Conecta resonancia y afinación descendente para organizar el centro de la voz.",
+  twang: "Entrena una resonancia brillante y eficiente sin apretar la garganta.",
+  viva: "Coordina saltos amplios con precisión para mejorar la agilidad vocal.",
+  chromatic: "Afina movimientos pequeños entre notas para ganar control y flexibilidad.",
+  "laxvox-breath": "La salida de aire constante mantiene las burbujas y reduce el esfuerzo laríngeo.",
+  "laxvox-onsets": "Practica ataques breves y claros sin perder el flujo del aire.",
+  "laxvox-alternate": "Diferencia aire y sonido para coordinar presión y vibración con calma.",
+  "laxvox-sustain": "Mejora la estabilidad del sonido mientras la resistencia del agua reduce el impacto.",
+  "laxvox-segundas": "Coordina intervalos cercanos con un flujo suave y una afinación estable.",
+  "laxvox-segundas-dobles": "Aumenta la velocidad de intervalos cercanos sin sacrificar relajación.",
+  "laxvox-terceras": "Amplía la coordinación entre registros mediante saltos cómodos y precisos.",
+  "laxvox-terceras-dobles": "Desarrolla agilidad en terceras manteniendo una presión equilibrada.",
+  "cooldown-sirens": "Ayuda a soltar la voz recorriendo el rango con menos intensidad.",
+  "cooldown-humming": "Relaja la emisión grave y conserva una vibración cómoda al cerrar la práctica.",
+  "cooldown-breath": "Baja la activación corporal con una exhalación larga y tranquila.",
+  "arpeggio-major": "Ordena saltos de tercera y quinta para mejorar la precisión de la agilidad.",
+  "scale-major": "Conecta pasos conjuntos y entrena una afinación uniforme al subir y bajar.",
+  "scale-minor": "Explora intervalos menores para ampliar el control expresivo sin forzar.",
+  "fifths-fast": "Mejora la coordinación rápida entre raíz y quinta con un pulso estable.",
+  "sirens-up": "Estira los pliegues en todo el rango y suaviza los pasajes entre registros.",
+  "sirens-down": "Estira los pliegues en todo el rango y suaviza los pasajes entre registros.",
+  "sirens-full": "Estira los pliegues en todo el rango y suaviza los pasajes entre registros.",
+};
+
+for (const routine of Object.values(ROUTINES)) {
+  for (const stage of routine) {
+    for (const exercise of stage.exercises) {
+      exercise.why =
+        EXERCISE_WHY[exercise.id] ||
+        "Este ejercicio coordina aire, vibración y afinación para cantar con comodidad.";
+    }
+  }
+}
+
+/** Returns all preset exercises grouped by their source routine. */
+export const EXERCISE_LIBRARY = [
+  ...new Map(
+    Object.entries(ROUTINES)
+      .flatMap(([routineId, stages]) =>
+        stages.flatMap((stage) =>
+          stage.exercises.map((exercise) => [
+            exercise.id,
+            {
+              ...exercise,
+              sourceRoutineId: routineId,
+              sourceRoutineLabel: ROUTINE_META[routineId]?.label || routineId,
+            },
+          ]),
+        ),
+      ),
+  ).values(),
+];
+
+/** Resolves a preset or persisted custom routine by identifier. */
+export function resolveRoutine(id, state) {
+  return (
+    ROUTINES[id] ||
+    state?.customRoutines?.find((routine) => routine.id === id)?.stages ||
+    WARMUP
+  );
+}
+
 /** Five-minute routine for low-energy days. */
 export const EXPRESS = WARMUP.slice(0, 2).map((stage, index) => ({
   ...stage,
@@ -505,7 +571,8 @@ export class RoutineTimer extends EventTarget {
   start(routineId = "warmup", stageOverride = null) {
     if (this.running) return;
     this.routineId = routineId;
-    this.stages = stageOverride || ROUTINES[routineId] || WARMUP;
+    this.stages =
+      stageOverride || resolveRoutine(routineId, this.state) || WARMUP;
     this.index = 0;
     this.exerciseIndex = 0;
     this.clock ??= new MasterClock(this.audio.ctx, this.bus);

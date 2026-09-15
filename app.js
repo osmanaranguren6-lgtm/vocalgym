@@ -13,12 +13,17 @@ import { initNotation } from "./js/ui/notation.js";
 import { initHistory } from "./js/ui/history.js";
 import { initSafety } from "./js/ui/safety.js";
 import { initRecordings } from "./js/ui/recordings.js";
+import { initBuilder } from "./js/ui/builder.js";
+import { initGuide } from "./js/ui/guide.js";
+import { initReminders } from "./js/reminders.js";
+import { initOnboarding } from "./js/ui/onboarding.js";
 
 const bus = new EventTarget();
 const store = createStorage();
 window.__bus = bus;
 window.__store = store;
 const audio = new AudioEngine(bus, () => store.state.settings);
+window.__audio = audio;
 const metronome = new Metronome(bus);
 const pitchMonitor = new PitchMonitor(
   document.getElementById("pitch-canvas"),
@@ -55,7 +60,12 @@ function showTab(name) {
  */
 function bootstrap() {
   document.querySelectorAll(".tab-button").forEach((button) => {
-    button.addEventListener("click", () => showTab(button.dataset.tab));
+    button.addEventListener("click", () => {
+      showTab(button.dataset.tab);
+      window.dispatchEvent(
+        new CustomEvent("tab:change", { detail: button.dataset.tab }),
+      );
+    });
   });
 
   renderHeader(store.state);
@@ -82,6 +92,18 @@ function bootstrap() {
     recordings,
   });
   window.__routine = routine;
+  initBuilder({
+    store,
+    bus,
+    alertUser: shell.alertUser,
+  });
+  initGuide({
+    audio,
+    bus,
+    store,
+    alertUser: shell.alertUser,
+    stopRoutine: routine.stop,
+  });
   initRange({
     audio,
     bus,
@@ -92,12 +114,21 @@ function bootstrap() {
   });
   initMetronome({ bus, metronome });
   initRewards({ bus, store });
+  const reminders = initReminders({
+    store,
+    alertUser: shell.alertUser,
+  });
   initSettings({
     store,
     audio,
     pitchMonitor,
     tunerMonitor,
     alertUser: shell.alertUser,
+    reminders,
+  });
+  initOnboarding({
+    store,
+    activateMicrophone: shell.activateMicrophone,
   });
   initHistory({ store, bus });
   initSafety({

@@ -3,6 +3,7 @@ import {
   ROUTINE_META,
   ROUTINES,
   WARMUP,
+  resolveRoutine,
   RoutineTimer,
 } from "../timing.js";
 import { evaluateBadges, phrase, updateStreak } from "../gamification.js";
@@ -23,9 +24,10 @@ export function initRoutine({
   recordings,
 }) {
   let routineId = store.state.settings.routineId || "warmup";
-  let activeStages = ROUTINES[routineId] || WARMUP;
+  let activeStages = resolveRoutine(routineId, store.state);
   let expressMode = false;
   let metrics = createMetrics(activeStages[0]?.exercises[0]);
+  let wakeLock = null;
   renderRoutineChoices();
   renderStages(activeStages);
   renderRoutineIntro(routineId);
@@ -46,8 +48,8 @@ export function initRoutine({
     if (routine.running) {
       return;
     }
-    routineId = ROUTINES[nextId] ? nextId : "warmup";
-    activeStages = ROUTINES[routineId];
+    routineId = resolveRoutine(nextId, store.state) ? nextId : "warmup";
+    activeStages = resolveRoutine(routineId, store.state);
     expressMode = false;
     store.update((state) => {
       state.settings.routineId = routineId;
@@ -61,7 +63,7 @@ export function initRoutine({
   async function start(selectedId, stages = null) {
     expressMode = Boolean(stages);
     routineId = selectedId;
-    activeStages = stages || ROUTINES[selectedId] || WARMUP;
+    activeStages = stages || resolveRoutine(selectedId, store.state);
     renderStages(activeStages);
     renderRoutineIntro(stages ? "warmup" : selectedId);
     document
@@ -72,6 +74,7 @@ export function initRoutine({
       alertUser("Rutina iniciada sin micrófono. Puedes practicar los pasos igualmente.");
     }
     routine.start(selectedId, stages);
+    await requestWakeLock();
     document.getElementById("routine-start").disabled = true;
     document.getElementById("routine-express").disabled = true;
     document.getElementById("routine-pause").disabled = false;
@@ -81,8 +84,20 @@ export function initRoutine({
     );
   }
 
-  document.querySelectorAll(".routine-choice").forEach((button) => {
-    button.addEventListener("click", () => setRoutine(button.dataset.routineId));
+  document
+    .getElementById("routine-selector")
+    .addEventListener("click", (event) => {
+      const button = event.target.closest(".routine-choice");
+      if (button) {
+        setRoutine(button.dataset.routineId);
+      }
+    });
+  bus.addEventListener("custom-routines:change", () => {
+    renderRoutineChoices();
+    activeStages = resolveRoutine(routineId, store.state);
+    renderStages(activeStages);
+    renderRoutineIntro(routineId);
+    selectRoutineButton(routineId);
   });
   document.getElementById("routine-start").addEventListener("click", () => {
     start(routineId);
@@ -195,11 +210,13 @@ export function initRoutine({
     document.getElementById("routine-express").disabled = false;
     document.getElementById("routine-pause").disabled = true;
     document.getElementById("routine-skip").disabled = true;
+    releaseWakeLock();
   });
 
   function stop() {
     finalizeSiren();
     routine.stop();
+    releaseWakeLock();
     document.getElementById("routine-start").disabled = false;
     document.getElementById("routine-express").disabled = false;
     document.getElementById("routine-pause").disabled = true;
@@ -208,6 +225,33 @@ export function initRoutine({
       .querySelectorAll(".routine-choice")
       .forEach((button) => (button.disabled = false));
   }
+
+  async function requestWakeLock() {
+    if (!store.state.settings.keepAwake || !navigator.wakeLock?.request) {
+      return;
+    }
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => {
+        wakeLock = null;
+      });
+    } catch {
+      wakeLock = null;
+    }
+  }
+
+  function releaseWakeLock() {
+    wakeLock?.release?.();
+    wakeLock = null;
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      releaseWakeLock();
+    } else if (routine.running) {
+      requestWakeLock();
+    }
+  });
 
   return { stop };
 
@@ -469,13 +513,18 @@ export function initRoutine({
   }
 
   function renderRoutineIntro(id) {
+    const custom = store.state.customRoutines.find((routine) => routine.id === id);
     document.getElementById("routine-intro").textContent =
-      ROUTINE_META[id]?.intro || ROUTINE_META.warmup.intro;
+      ROUTINE_META[id]?.intro || custom?.intro || ROUTINE_META.warmup.intro;
   }
 
   function renderRoutineChoices() {
     const root = document.getElementById("routine-selector");
-    root.innerHTML = Object.entries(ROUTINE_META)
+    const custom = store.state.customRoutines.map((routine) => [
+      routine.id,
+      { label: routine.label, intro: routine.intro },
+    ]);
+    root.innerHTML = [...Object.entries(ROUTINE_META), ...custom]
       .map(
         ([id, meta]) =>
           `<button type="button" class="routine-choice" data-routine-id="${id}">${meta.label}</button>`,
@@ -503,6 +552,7 @@ export function renderRoutine(detail, stages = WARMUP) {
   document.getElementById("exercise-name").textContent = exercise.name;
   document.getElementById("exercise-instruction").textContent =
     exercise.instruction;
+  document.getElementById("exercise-why").textContent = exercise.why || "";
   document.getElementById("timer-value").textContent = `${Math.floor(
     detail.remaining / 60,
   )
