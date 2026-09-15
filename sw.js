@@ -1,4 +1,4 @@
-const CACHE_NAME = "vocalgym-v03";
+const CACHE_NAME = "vocalgym-v04";
 const SHELL = [
   "./",
   "./index.html",
@@ -24,6 +24,10 @@ const SHELL = [
   "./js/ui/settings.js",
   "./js/ui/shell.js",
   "./assets/exercises/chromatic.musicxml",
+  "./assets/exercises/laxvox-segundas.musicxml",
+  "./assets/exercises/laxvox-segundas-dobles.musicxml",
+  "./assets/exercises/laxvox-terceras.musicxml",
+  "./assets/exercises/laxvox-terceras-dobles.musicxml",
   "./assets/exercises/ming-oh.musicxml",
   "./assets/exercises/name-ney.musicxml",
   "./assets/exercises/vi-va.musicxml",

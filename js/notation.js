@@ -20,6 +20,22 @@ const EXERCISES = {
     title: "Cromático",
     url: "assets/exercises/chromatic.musicxml",
   },
+  "laxvox-segundas": {
+    title: "Lax Vox · Segundas",
+    url: "assets/exercises/laxvox-segundas.musicxml",
+  },
+  "laxvox-segundas-dobles": {
+    title: "Lax Vox · Segundas dobles",
+    url: "assets/exercises/laxvox-segundas-dobles.musicxml",
+  },
+  "laxvox-terceras": {
+    title: "Lax Vox · Terceras",
+    url: "assets/exercises/laxvox-terceras.musicxml",
+  },
+  "laxvox-terceras-dobles": {
+    title: "Lax Vox · Terceras dobles",
+    url: "assets/exercises/laxvox-terceras-dobles.musicxml",
+  },
 };
 
 let osmdLibraryPromise = null;
@@ -89,6 +105,9 @@ export class NotationEngine {
     this.waitIndex = -1;
     this.waitGreenSince = 0;
     this.waitYellowSince = 0;
+    this.routinePlaybackStartedAt = 0;
+    this.lastRoutineAdvanceAt = 0;
+    this.routineLoopSeconds = 0;
   }
 
   /**
@@ -416,6 +435,8 @@ export class NotationEngine {
     this.loop = loop;
     this.playing = true;
     this.waitForNote = waitForNote;
+    this.routinePlaybackStartedAt = performance.now();
+    this.lastRoutineAdvanceAt = this.routinePlaybackStartedAt;
     this.ensureSynth();
     this.osmd.cursor.reset();
     this.cursorIndex = -1;
@@ -431,10 +452,12 @@ export class NotationEngine {
 
     const last = this.timeline[this.timeline.length - 1];
     const loopBeats = last.beats + last.durationBeats;
-    const loopSeconds = Tone.Time(`${loopBeats}*4n`).toSeconds();
+    const quarterSeconds = Tone.Time("4n").toSeconds();
+    const loopSeconds = loopBeats * quarterSeconds;
+    this.routineLoopSeconds = loopSeconds;
 
     this.timeline.forEach((entry) => {
-      const seconds = Tone.Time(`${entry.beats}*4n`).toSeconds();
+      const seconds = entry.beats * quarterSeconds;
       const id = Tone.Transport.schedule(() => {
         this.moveCursor(entry.index);
         this.emitTargets(entry);
@@ -636,6 +659,14 @@ export class NotationEngine {
     if (!this.routineProgression || !this.timeline.length) {
       return;
     }
+    const now = performance.now();
+    if (
+      now - this.lastRoutineAdvanceAt <
+      Math.max(0.25, this.routineLoopSeconds) * 1000 - 50
+    ) {
+      return;
+    }
+    this.lastRoutineAdvanceAt = now;
 
     const baseMidis = this.timeline.flatMap((entry) => entry.midis);
     const highest = Math.max(...baseMidis) + this.routineShift;

@@ -48,6 +48,24 @@ select {
   padding: 0.5rem 0.75rem;
 }
 
+.routine-choice {
+  border-radius: 0.8rem;
+  color: #94a3b8;
+  flex: 1 1 12rem;
+  font-size: 0.875rem;
+  padding: 0.7rem 1rem;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.routine-choice.active {
+  background: #164e63;
+  color: #cffafe;
+}
+
+.routine-pop {
+  animation: badge-pop 280ms ease-out;
+}
+
 .history-chart-wrap {
   min-height: 240px;
   position: relative;

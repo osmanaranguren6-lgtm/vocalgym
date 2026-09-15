@@ -59,6 +59,20 @@ export const BADGES = [
     description: "Completa un ejercicio a 200 BPM.",
     rule: (s) => s.stats.maxBpmCompleted >= 200,
   },
+  {
+    id: "laxvox_first",
+    name: "Burbujas de Oro",
+    icon: "🫧",
+    description: "Completa tu primera rutina Lax Vox.",
+    rule: (s) => s.stats.laxvoxRoutinesCompleted >= 1,
+  },
+  {
+    id: "laxvox_10",
+    name: "Maestro del Tubo",
+    icon: "🧪",
+    description: "Completa diez rutinas Lax Vox.",
+    rule: (s) => s.stats.laxvoxRoutinesCompleted >= 10,
+  },
 ];
 /** Motivational phrases grouped by application context. */
 export const PHRASES = [
@@ -107,6 +121,10 @@ export const PHRASES = [
   ["rest", "Hoy cuidar la voz es el ejercicio correcto."],
   ["range", "Tu mapa cambia cuando aprendes a escucharte."],
   ["range", "Mide sin competir: la información te acompaña."],
+  ["laxvox", "El agua hace el trabajo: tú solo mantén el flujo."],
+  ["laxvox", "Burbujas suaves, mandíbula tranquila, sonido libre."],
+  ["laxvox", "Deja que el tubo convierta el esfuerzo en facilidad."],
+  ["laxvox", "Mantén el flujo y permite que la voz se acomode."],
 ];
 /** Selects a random phrase for a context. */
 export function phrase(context = "start") {

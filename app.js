@@ -15,6 +15,8 @@ import { initSafety } from "./js/ui/safety.js";
 
 const bus = new EventTarget();
 const store = createStorage();
+window.__bus = bus;
+window.__store = store;
 const audio = new AudioEngine(bus, () => store.state.settings);
 const metronome = new Metronome(bus);
 const pitchMonitor = new PitchMonitor(
@@ -70,7 +72,9 @@ function bootstrap() {
     alertUser: shell.alertUser,
     renderHeader: shell.renderHeader,
     loadRoutineExercise: notation.loadRoutineExercise,
+    metronome,
   });
+  window.__routine = routine;
   initRange({
     audio,
     bus,

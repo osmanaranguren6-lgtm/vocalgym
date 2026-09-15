@@ -87,6 +87,154 @@ export const WARMUP = [
     ],
   },
 ];
+
+/** The twelve-minute semi-occluded Lax Vox routine. */
+export const LAXVOX = [
+  {
+    id: "laxvox-breath",
+    name: "Soplo 5 s y 10 s",
+    minutes: 1.5,
+    color: "cyan",
+    description: "Sopla burbujas constantes sin sonido.",
+    exercises: [
+      {
+        id: "laxvox-breath",
+        name: "Soplo 5 s y 10 s",
+        type: "breath",
+        detector: "rms",
+        cycles: [
+          { inhale: 3, blow: 5 },
+          { inhale: 3, blow: 5 },
+          { inhale: 4, blow: 10 },
+          { inhale: 4, blow: 10 },
+        ],
+        instruction: "Sopla burbujas constantes sin sonido.",
+      },
+    ],
+  },
+  {
+    id: "laxvox-onsets",
+    name: "10 sonidos cortos",
+    minutes: 1,
+    color: "violet",
+    description: "Emite 'uuu' corto en el tubo, 10 veces.",
+    exercises: [
+      {
+        id: "laxvox-onsets",
+        name: "10 sonidos cortos",
+        type: "onsets",
+        target: 10,
+        instruction: "Emite 'uuu' corto en el tubo, 10 veces.",
+      },
+    ],
+  },
+  {
+    id: "laxvox-alternate",
+    name: "Soplo / Sonido",
+    minutes: 1.5,
+    color: "fuchsia",
+    description: "Alterna soplo sin voz y sonido.",
+    exercises: [
+      {
+        id: "laxvox-alternate",
+        name: "Soplo / Sonido",
+        type: "alternate",
+        phases: [
+          { name: "Soplo", kind: "blow", seconds: 3 },
+          { name: "Sonido", kind: "sound", seconds: 3 },
+        ],
+        instruction: "Alterna soplo sin voz y sonido, sin cortar el aire.",
+      },
+    ],
+  },
+  {
+    id: "laxvox-sustain",
+    name: "Sonido largo",
+    minutes: 1.5,
+    color: "amber",
+    description: "Mantén un sonido cómodo y estable.",
+    exercises: [
+      {
+        id: "laxvox-sustain",
+        name: "Sonido largo",
+        type: "sustain",
+        target: 15,
+        instruction: "Un sonido largo y cómodo, burbujas constantes.",
+      },
+    ],
+  },
+  {
+    id: "laxvox-segundas",
+    name: "Segundas",
+    minutes: 1.5,
+    color: "cyan",
+    description: "Canta segundas con un flujo suave.",
+    exercises: [
+      {
+        id: "laxvox-segundas",
+        name: "Segundas",
+        type: "pattern",
+        bpm: 80,
+        instruction: "Canta el patrón con burbujas constantes.",
+      },
+    ],
+  },
+  {
+    id: "laxvox-segundas-dobles",
+    name: "Segundas dobles",
+    minutes: 1.5,
+    color: "violet",
+    description: "Agiliza las segundas sin perder el flujo.",
+    exercises: [
+      {
+        id: "laxvox-segundas-dobles",
+        name: "Segundas dobles",
+        type: "pattern",
+        bpm: 80,
+        instruction: "Mantén el tubo relajado mientras aceleras.",
+      },
+    ],
+  },
+  {
+    id: "laxvox-terceras",
+    name: "Terceras",
+    minutes: 1.5,
+    color: "fuchsia",
+    description: "Explora terceras con comodidad.",
+    exercises: [
+      {
+        id: "laxvox-terceras",
+        name: "Terceras",
+        type: "pattern",
+        bpm: 80,
+        instruction: "Deja que el agua suavice cada intervalo.",
+      },
+    ],
+  },
+  {
+    id: "laxvox-terceras-dobles",
+    name: "Terceras dobles",
+    minutes: 1.5,
+    color: "amber",
+    description: "Coordina terceras dobles con ligereza.",
+    exercises: [
+      {
+        id: "laxvox-terceras-dobles",
+        name: "Terceras dobles",
+        type: "pattern",
+        bpm: 80,
+        instruction: "Termina suave, sin apretar la mandíbula.",
+      },
+    ],
+  },
+];
+
+/** Available routine definitions keyed by their persisted identifier. */
+export const ROUTINES = {
+  warmup: WARMUP,
+  laxvox: LAXVOX,
+};
+
 /** Five-minute routine for low-energy days. */
 export const EXPRESS = WARMUP.slice(0, 2).map((stage, index) => ({
   ...stage,
@@ -104,10 +252,12 @@ export class MasterClock {
     this.onTick = this.onTick.bind(this);
   }
   get elapsed() {
-    return this.t0 === null ? this.paused : this.ctx.currentTime - this.t0;
+    const now = this.ctx?.currentTime ?? performance.now() / 1000;
+    return this.t0 === null ? this.paused : now - this.t0;
   }
   start() {
-    this.t0 = this.ctx.currentTime - this.paused;
+    const now = this.ctx?.currentTime ?? performance.now() / 1000;
+    this.t0 = now - this.paused;
     this.last = 0;
     this.raf = requestAnimationFrame(this.onTick);
   }
@@ -146,6 +296,7 @@ export class RoutineTimer extends EventTarget {
     this.startedAt = 0;
     this.activeSeconds = 0;
     this.lastTick = 0;
+    this.routineId = "warmup";
     this.stages = WARMUP;
     bus.addEventListener("clock:tick", () => this.tick());
   }
@@ -155,17 +306,10 @@ export class RoutineTimer extends EventTarget {
       60
     );
   }
-  start(stages = this.stages) {
+  start(routineId = "warmup", stageOverride = null) {
     if (this.running) return;
-    if (!this.audio.ctx) {
-      this.audio
-        .start()
-        .catch((e) =>
-          this.bus.dispatchEvent(new CustomEvent("audio:error", { detail: e })),
-        );
-      return;
-    }
-    this.stages = stages;
+    this.routineId = routineId;
+    this.stages = stageOverride || ROUTINES[routineId] || WARMUP;
     this.index = 0;
     this.clock ??= new MasterClock(this.audio.ctx, this.bus);
     this.running = true;

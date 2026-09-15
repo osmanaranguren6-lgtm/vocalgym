@@ -101,6 +101,28 @@
           </button>
         </div>
         <div
+          id="routine-selector"
+          class="routine-selector flex flex-wrap gap-1 rounded-2xl border border-slate-800 bg-slate-900/60 p-1"
+          role="group"
+          aria-label="Selecciona tu rutina"
+        >
+          <button
+            type="button"
+            class="routine-choice active"
+            data-routine-id="warmup"
+          >
+            Calentamiento (17 min)
+          </button>
+          <button
+            type="button"
+            class="routine-choice"
+            data-routine-id="laxvox"
+          >
+            Lax Vox (12 min)
+          </button>
+        </div>
+        <p id="routine-intro" class="rounded-xl bg-cyan-400/10 p-3 text-sm text-cyan-100"></p>
+        <div
           id="stage-cards"
           class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         ></div>
@@ -130,6 +152,7 @@
             <p id="exercise-instruction" class="mt-2 text-slate-400">
               Tu sesión incluye respiración, SOVTE, resonancia y agilidad.
             </p>
+            <div id="routine-feedback" class="mt-3 text-sm text-cyan-200"></div>
             <div class="mt-6 flex flex-wrap gap-2">
               <button id="routine-start" class="primary-button">
                 ▶ Iniciar rutina</button
@@ -418,6 +441,33 @@
                 data-exercise="chromatic"
               >
                 Cromático
+              </button>
+              <span class="basis-full mt-2 text-xs font-semibold uppercase tracking-wider text-cyan-300">
+                Lax Vox
+              </span>
+              <button
+                class="secondary-button notation-exercise"
+                data-exercise="laxvox-segundas"
+              >
+                Segundas
+              </button>
+              <button
+                class="secondary-button notation-exercise"
+                data-exercise="laxvox-segundas-dobles"
+              >
+                Segundas dobles
+              </button>
+              <button
+                class="secondary-button notation-exercise"
+                data-exercise="laxvox-terceras"
+              >
+                Terceras
+              </button>
+              <button
+                class="secondary-button notation-exercise"
+                data-exercise="laxvox-terceras-dobles"
+              >
+                Terceras dobles
               </button>
             </div>
             <label class="flex items-center gap-2 text-sm text-slate-300">

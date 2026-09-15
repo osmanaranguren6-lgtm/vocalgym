@@ -1,4 +1,4 @@
-import { EXPRESS, WARMUP, RoutineTimer } from "../timing.js";
+import { EXPRESS, ROUTINES, WARMUP, RoutineTimer } from "../timing.js";
 import { evaluateBadges, phrase, updateStreak } from "../gamification.js";
 import { renderStages } from "./header.js";
 
@@ -13,29 +13,65 @@ export function initRoutine({
   alertUser,
   renderHeader,
   loadRoutineExercise,
+  metronome,
 }) {
-  let activeStages = WARMUP;
-  renderStages(activeStages);
+  let routineId = store.state.settings.routineId || "warmup";
+  let activeStages = ROUTINES[routineId] || WARMUP;
+  let expressMode = false;
+  let metrics = createMetrics(activeStages[0]?.exercises[0]);
+  renderStages(activeStages, routineIntro(routineId));
+  renderRoutineIntro(routineId);
+  selectRoutineButton(routineId);
 
   const routine = new RoutineTimer(bus, audio, store.state);
 
-  async function start(stages) {
-    activeStages = stages;
-    renderStages(activeStages);
+  function setRoutine(nextId) {
+    if (routine.running) {
+      return;
+    }
+    routineId = ROUTINES[nextId] ? nextId : "warmup";
+    activeStages = ROUTINES[routineId];
+    expressMode = false;
+    store.update((state) => {
+      state.settings.routineId = routineId;
+    });
+    renderStages(activeStages, routineIntro(routineId));
+    renderRoutineIntro(routineId);
+    selectRoutineButton(routineId);
+    resetMetrics(activeStages[0]?.exercises[0]);
+  }
+
+  async function start(selectedId, stages = null) {
+    expressMode = Boolean(stages);
+    routineId = selectedId;
+    activeStages = stages || ROUTINES[selectedId] || WARMUP;
+    renderStages(activeStages, routineIntro(stages ? "warmup" : selectedId));
+    renderRoutineIntro(stages ? "warmup" : selectedId);
+    document
+      .querySelectorAll(".routine-choice")
+      .forEach((button) => (button.disabled = true));
     await activateMicrophone();
-    routine.start(activeStages);
+    if (!audio.ctx) {
+      alertUser("Rutina iniciada sin micrófono. Puedes practicar los pasos igualmente.");
+    }
+    routine.start(selectedId, stages);
     document.getElementById("routine-start").disabled = true;
     document.getElementById("routine-express").disabled = true;
     document.getElementById("routine-pause").disabled = false;
     document.getElementById("routine-skip").disabled = false;
-    document.getElementById("motivation").textContent = phrase("start");
+    document.getElementById("motivation").textContent = phrase(
+      routineId === "laxvox" ? "laxvox" : "start",
+    );
   }
 
+  document.querySelectorAll(".routine-choice").forEach((button) => {
+    button.addEventListener("click", () => setRoutine(button.dataset.routineId));
+  });
   document.getElementById("routine-start").addEventListener("click", () => {
-    start(WARMUP);
+    start(routineId);
   });
   document.getElementById("routine-express").addEventListener("click", () => {
-    start(EXPRESS);
+    start("warmup", EXPRESS);
   });
 
   document.getElementById("routine-pause").addEventListener("click", () => {
@@ -48,12 +84,13 @@ export function initRoutine({
   });
 
   bus.addEventListener("timer:tick", (event) => {
-    renderRoutine(event.detail);
+    renderRoutine(event.detail, activeStages);
   });
 
   bus.addEventListener("stage:change", (event) => {
     const stage = activeStages.find((item) => item.id === event.detail.to);
     const exercise = stage?.exercises[0];
+    resetMetrics(exercise);
 
     if (exercise?.type === "pattern" && loadRoutineExercise) {
       loadRoutineExercise(exercise.id).catch((error) =>
@@ -61,8 +98,29 @@ export function initRoutine({
       );
     }
 
+    if (exercise?.type === "pattern" && exercise.bpm) {
+      window.dispatchEvent(
+        new CustomEvent("routine:bpm", { detail: { bpm: exercise.bpm } }),
+      );
+    }
+    if (routineId === "laxvox") {
+      document.getElementById("motivation").textContent = phrase("laxvox");
+    }
     playStageBell();
   });
+
+  bus.addEventListener("pitch:frame", (event) => {
+    if (!routine.running) {
+      return;
+    }
+    updateMetrics(event.detail);
+  });
+
+  if (metronome) {
+    window.addEventListener("routine:bpm", (event) => {
+      metronome.setBpm(event.detail.bpm);
+    });
+  }
 
   bus.addEventListener("routine:complete", () => {
     store.update((state) => {
@@ -80,6 +138,9 @@ export function initRoutine({
         badges: [],
       });
       state.stats.totalActiveSec += durationSec;
+      if (routineId === "laxvox") {
+        state.stats.laxvoxRoutinesCompleted += 1;
+      }
     });
     bus.dispatchEvent(
       new CustomEvent("score:update", {
@@ -91,6 +152,9 @@ export function initRoutine({
     evaluateBadges(store.state, bus);
     renderHeader();
     alertUser("Rutina completada. Tu constancia cuenta.");
+    document
+      .querySelectorAll(".routine-choice")
+      .forEach((button) => (button.disabled = false));
     document.getElementById("routine-start").disabled = false;
     document.getElementById("routine-express").disabled = false;
     document.getElementById("routine-pause").disabled = true;
@@ -103,17 +167,227 @@ export function initRoutine({
     document.getElementById("routine-express").disabled = false;
     document.getElementById("routine-pause").disabled = true;
     document.getElementById("routine-skip").disabled = true;
+    document
+      .querySelectorAll(".routine-choice")
+      .forEach((button) => (button.disabled = false));
   }
 
   return { stop };
+
+  function createMetrics(exercise) {
+    return {
+      exerciseId: exercise?.id || "",
+      onsetCount: 0,
+      onsetVoicedSince: 0,
+      onsetCounted: false,
+      onsetUnvoicedSince: performance.now(),
+      rmsSamples: 0,
+      rmsActive: 0,
+      phaseIndex: 0,
+      phaseStartedAt: performance.now(),
+      phaseSamples: 0,
+      phaseMatches: 0,
+      sustainSince: 0,
+      sustainBest: 0,
+      sustainFrames: [],
+      restUntil: 0,
+    };
+  }
+
+  function resetMetrics(exercise) {
+    metrics = createMetrics(exercise);
+    window.__routineMetrics = metrics;
+    renderRoutineFeedback(exercise);
+  }
+
+  function frameNow() {
+    return performance.now();
+  }
+
+  function updateMetrics(frame) {
+    const stage = activeStages.find(
+      (item) => item.exercises[0].id === metrics.exerciseId,
+    );
+    const exercise = stage?.exercises[0];
+    if (!exercise) {
+      return;
+    }
+    const now = frameNow();
+    if (exercise.type === "onsets") {
+      updateOnsets(frame, exercise, now);
+    } else if (exercise.type === "alternate") {
+      updateAlternate(frame, exercise, now);
+    } else if (exercise.type === "sustain") {
+      updateSustain(frame, exercise, now);
+    } else if (exercise.type === "breath") {
+      updateBreath(frame, now);
+    }
+    renderRoutineFeedback(exercise);
+  }
+
+  function updateBreath(frame, now) {
+    metrics.rmsSamples += 1;
+    if (Number(frame.rms) > 10 ** (-50 / 20)) {
+      metrics.rmsActive += 1;
+    }
+    metrics.lastFrameAt = now;
+  }
+
+  function updateOnsets(frame, exercise, now) {
+    if (metrics.restUntil) {
+      if (now < metrics.restUntil) {
+        return;
+      }
+      metrics.onsetCount = 0;
+      metrics.restUntil = 0;
+      metrics.onsetUnvoicedSince = now;
+    }
+    if (frame.voiced) {
+      if (!metrics.onsetVoicedSince) {
+        if (now - metrics.onsetUnvoicedSince >= 150) {
+          metrics.onsetVoicedSince = now;
+          metrics.onsetCounted = false;
+        }
+      }
+      if (
+        metrics.onsetVoicedSince &&
+        !metrics.onsetCounted &&
+        now - metrics.onsetVoicedSince >= 100
+      ) {
+        metrics.onsetCount += 1;
+        metrics.onsetCounted = true;
+        document.getElementById("routine-feedback").classList.add("routine-pop");
+        window.setTimeout(
+          () =>
+            document
+              .getElementById("routine-feedback")
+              .classList.remove("routine-pop"),
+          300,
+        );
+        if (metrics.onsetCount >= exercise.target) {
+          metrics.restUntil = now + 5000;
+        }
+      }
+    } else {
+      if (!metrics.onsetUnvoicedSince || metrics.onsetVoicedSince) {
+        metrics.onsetUnvoicedSince = now;
+      }
+      if (
+        metrics.onsetVoicedSince &&
+        !metrics.onsetCounted &&
+        now - metrics.onsetVoicedSince >= 100
+      ) {
+        metrics.onsetCount += 1;
+        metrics.onsetCounted = true;
+      }
+      metrics.onsetVoicedSince = 0;
+      metrics.onsetCounted = false;
+    }
+  }
+
+  function updateAlternate(frame, exercise, now) {
+    const phase = exercise.phases[metrics.phaseIndex];
+    const elapsed = now - metrics.phaseStartedAt;
+    const matches =
+      phase.kind === "blow"
+        ? Number(frame.rms) > 10 ** (-50 / 20) && !frame.voiced
+        : Boolean(frame.voiced);
+    metrics.phaseSamples += 1;
+    if (matches) {
+      metrics.phaseMatches += 1;
+    }
+    if (elapsed >= phase.seconds * 1000) {
+      metrics.phaseIndex =
+        (metrics.phaseIndex + 1) % exercise.phases.length;
+      metrics.phaseStartedAt = now;
+      metrics.phaseSamples = 0;
+      metrics.phaseMatches = 0;
+    }
+  }
+
+  function updateSustain(frame, exercise, now) {
+    if (!frame.voiced || !Number.isFinite(frame.midi)) {
+      metrics.sustainSince = 0;
+      metrics.sustainFrames = [];
+      return;
+    }
+    if (!metrics.sustainSince) {
+      metrics.sustainSince = now;
+    }
+    metrics.sustainFrames.push({
+      now,
+      cents: frame.midi * 100 + (Number(frame.cents) || 0),
+    });
+    metrics.sustainFrames = metrics.sustainFrames.filter(
+      (item) => now - item.now <= 1000,
+    );
+    const values = metrics.sustainFrames.map((item) => item.cents);
+    const average =
+      values.reduce((total, value) => total + value, 0) / values.length;
+    const variance =
+      values.reduce((total, value) => total + (value - average) ** 2, 0) /
+      values.length;
+    const stable = Math.sqrt(variance) < 50;
+    const held = stable ? (now - metrics.sustainSince) / 1000 : 0;
+    if (!stable) {
+      metrics.sustainSince = now;
+    }
+    metrics.sustainBest = Math.max(metrics.sustainBest, held);
+    metrics.sustainTarget = exercise.target;
+  }
+
+  function renderRoutineFeedback(exercise) {
+    const element = document.getElementById("routine-feedback");
+    if (!element || !exercise) {
+      return;
+    }
+    if (exercise.type === "onsets") {
+      const rest = metrics.restUntil
+        ? ` · descanso ${Math.max(0, Math.ceil((metrics.restUntil - frameNow()) / 1000))} s`
+        : "";
+      element.textContent = `${Math.min(metrics.onsetCount, exercise.target)}/${exercise.target}${rest}`;
+    } else if (exercise.type === "alternate") {
+      const phase = exercise.phases[metrics.phaseIndex];
+      const ratio = metrics.phaseSamples
+        ? metrics.phaseMatches / metrics.phaseSamples
+        : 0;
+      element.textContent = `${phase.name}: ${ratio >= 0.6 ? "✓ OK" : "escucha el flujo"}`;
+    } else if (exercise.type === "sustain") {
+      element.textContent = `Sostenido ${Math.floor(
+        Math.min(exercise.target, metrics.sustainBest || 0),
+      )} s · mejor ${Math.floor(metrics.sustainBest || 0)} s`;
+    } else if (exercise.detector === "rms") {
+      const continuity = metrics.rmsSamples
+        ? Math.round((metrics.rmsActive / metrics.rmsSamples) * 100)
+        : 0;
+      element.textContent = `Continuidad del soplo: ${continuity}%`;
+    } else {
+      element.textContent = "";
+    }
+  }
+
+  function renderRoutineIntro(id) {
+    document.getElementById("routine-intro").textContent = routineIntro(id);
+  }
+
+  function routineIntro(id) {
+    return id === "laxvox"
+      ? "Tubo de silicona 1–2 cm bajo el agua, labios sellados, mandíbula relajada."
+      : "Calentamiento progresivo de respiración, SOVTE, resonancia y agilidad.";
+  }
+
+  function selectRoutineButton(id) {
+    document.querySelectorAll(".routine-choice").forEach((button) => {
+      button.classList.toggle("active", button.dataset.routineId === id);
+    });
+  }
 }
 
 /**
  * Renders stage name, exercise instructions, progress, and timer.
  */
-export function renderRoutine(detail) {
-  const stage =
-    WARMUP.find((item) => item.id === detail.stageId) || WARMUP[0];
+export function renderRoutine(detail, stages = WARMUP) {
+  const stage = stages.find((item) => item.id === detail.stageId) || stages[0];
   const exercise = stage.exercises[0];
 
   document.getElementById("stage-name").textContent = stage.name;

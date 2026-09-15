@@ -5,6 +5,10 @@ const ROUTINE_EXERCISES = {
   twang: "name-ney",
   viva: "vi-va",
   chromatic: "chromatic",
+  "laxvox-segundas": "laxvox-segundas",
+  "laxvox-segundas-dobles": "laxvox-segundas-dobles",
+  "laxvox-terceras": "laxvox-terceras",
+  "laxvox-terceras-dobles": "laxvox-terceras-dobles",
 };
 
 /**
@@ -181,11 +185,16 @@ export function initNotation({ bus, store, metronome, alertUser }) {
     await routineEngine.loadExercise(bundledId);
     const ratio =
       exerciseId === "mingoh" || exerciseId === "twang" ? 0.35 : 0.3;
-    routineEngine.autoTranspose(ratio);
-    const range = getRange() || { lowMidi: 48, highMidi: 72 };
+    const range = getRange();
+    if (range) {
+      routineEngine.autoTranspose(ratio);
+    } else {
+      routineEngine.setTranspose(0);
+    }
+    const comfortRange = range || { lowMidi: 48, highMidi: 72 };
     routineEngine.setRoutineProgression({
-      comfortLow: range.lowMidi + 3,
-      comfortHigh: range.highMidi - 3,
+      comfortLow: comfortRange.lowMidi + 3,
+      comfortHigh: comfortRange.highMidi - 3,
     });
     document
       .getElementById("routine-notation-panel")
