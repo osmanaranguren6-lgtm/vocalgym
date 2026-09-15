@@ -1,7 +1,13 @@
 /**
  * Initializes settings, device selection, export, and import controls.
  */
-export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
+export function initSettings({
+  store,
+  audio,
+  pitchMonitor,
+  tunerMonitor,
+  alertUser,
+}) {
   const dialog = document.getElementById("settings-dialog");
 
   async function populateDevices() {
@@ -36,6 +42,10 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
         `${settings.accompanimentVol ?? -12} dB`;
       document.getElementById("setting-wait-for-note").checked =
         settings.waitForNote;
+      document.getElementById("setting-clarity").value = settings.clarity;
+      document.getElementById("setting-gate-db").value = settings.gateDb;
+      document.getElementById("setting-gate-db-value").textContent =
+        `Umbral de silencio: ${settings.gateDb} dB`;
       await populateDevices();
       dialog.showModal();
     });
@@ -55,7 +65,14 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
       state.settings.waitForNote = document.getElementById(
         "setting-wait-for-note",
       ).checked;
+      state.settings.clarity = Number(
+        document.getElementById("setting-clarity").value,
+      );
+      state.settings.gateDb = Number(
+        document.getElementById("setting-gate-db").value,
+      );
     });
+    audio?.applyConfig(store.state.settings);
     pitchMonitor.setA4(store.state.settings.a4);
     tunerMonitor.setA4(store.state.settings.a4);
   });
@@ -65,6 +82,12 @@ export function initSettings({ store, pitchMonitor, tunerMonitor, alertUser }) {
     .addEventListener("input", (event) => {
       document.getElementById("setting-accompaniment-value").textContent =
         `${event.target.value} dB`;
+    });
+  document
+    .getElementById("setting-gate-db")
+    .addEventListener("input", (event) => {
+      document.getElementById("setting-gate-db-value").textContent =
+        `Umbral de silencio: ${event.target.value} dB`;
     });
 
   document.getElementById("export-data").addEventListener("click", () => {

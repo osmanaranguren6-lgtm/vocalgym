@@ -1,7 +1,5 @@
-const RMS_GATE = 10 ** (-50 / 20);
 const MIN_FREQUENCY = 60;
 const MAX_FREQUENCY = 1400;
-const CLARITY_GATE = 0.9;
 
 /**
  * AudioWorklet processor that estimates monophonic pitch with MPM.
@@ -12,10 +10,29 @@ class PitchProcessor extends AudioWorkletProcessor {
 
     this.bufferSize = processorOptions.bufferSize || 2048;
     this.hopSize = processorOptions.hop || 512;
+    this.clarityGate = Number.isFinite(processorOptions.clarity)
+      ? processorOptions.clarity
+      : 0.9;
+    this.gateDb = Number.isFinite(processorOptions.gateDb)
+      ? processorOptions.gateDb
+      : -50;
+    this.rmsGate = 10 ** (this.gateDb / 20);
     this.ringBuffer = new Float32Array(this.bufferSize);
     this.analysisBuffer = new Float32Array(this.bufferSize);
     this.writeIndex = 0;
     this.samplesSinceAnalysis = 0;
+    this.port.onmessage = (event) => {
+      if (event.data?.type !== "config") {
+        return;
+      }
+      if (Number.isFinite(event.data.clarity)) {
+        this.clarityGate = event.data.clarity;
+      }
+      if (Number.isFinite(event.data.gateDb)) {
+        this.gateDb = event.data.gateDb;
+        this.rmsGate = 10 ** (this.gateDb / 20);
+      }
+    };
   }
 
   process(inputs) {
@@ -46,7 +63,7 @@ class PitchProcessor extends AudioWorkletProcessor {
     let frequency = null;
     let clarity = 0;
 
-    if (rms > RMS_GATE) {
+    if (rms > this.rmsGate) {
       const result = this.detectPitch();
       frequency = result.frequency;
       clarity = result.clarity;
@@ -56,8 +73,8 @@ class PitchProcessor extends AudioWorkletProcessor {
       frequency &&
         frequency >= MIN_FREQUENCY &&
         frequency <= MAX_FREQUENCY &&
-        clarity >= CLARITY_GATE &&
-        rms > RMS_GATE,
+        clarity >= this.clarityGate &&
+        rms > this.rmsGate,
     );
 
     this.port.postMessage({

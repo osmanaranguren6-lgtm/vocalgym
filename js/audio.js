@@ -66,10 +66,16 @@ export class AudioEngine extends EventTarget {
     const src = this.ctx.createMediaStreamSource(this.stream),
       hp = new BiquadFilterNode(this.ctx, { type: "highpass", frequency: 60 });
     this.node = new AudioWorkletNode(this.ctx, "pitch-processor", {
-      processorOptions: { bufferSize: 2048, hop: 512 },
+      processorOptions: {
+        bufferSize: 2048,
+        hop: 512,
+        clarity: s.clarity ?? 0.9,
+        gateDb: s.gateDb ?? -50,
+      },
     });
     src.connect(hp).connect(this.node);
     this.node.port.onmessage = (e) => this.onFrame(e.data);
+    this.applyConfig(s);
     this.stream.getAudioTracks()[0].onended = () =>
       this.dispatchEvent(new CustomEvent("audio:ended"));
     const st = this.stream.getAudioTracks()[0].getSettings();
@@ -133,6 +139,16 @@ export class AudioEngine extends EventTarget {
   }
   setTarget(target) {
     this.target = target;
+  }
+  /**
+   * Applies microphone clarity and silence-gate settings to the worklet.
+   */
+  applyConfig(settings = this.getSettings()) {
+    this.node?.port.postMessage({
+      type: "config",
+      clarity: Number(settings.clarity ?? 0.9),
+      gateDb: Number(settings.gateDb ?? -50),
+    });
   }
   setEnabled(enabled) {
     if (this.stream)

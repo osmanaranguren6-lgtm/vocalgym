@@ -94,6 +94,7 @@ function bootstrap() {
   initRewards({ bus, store });
   initSettings({
     store,
+    audio,
     pitchMonitor,
     tunerMonitor,
     alertUser: shell.alertUser,

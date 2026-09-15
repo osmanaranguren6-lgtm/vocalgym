@@ -563,6 +563,23 @@
             <option value="pro">Pro · ±8 / ±25</option>
           </select></label
         ><label class="field-label"
+          >Claridad<select id="setting-clarity" class="input-field">
+            <option value="0.9">Voz clara (0.9)</option>
+            <option value="0.8">Voz con aire / tubo (0.8)</option>
+            <option value="0.7">Muy sensible (0.7)</option>
+          </select></label
+        ><label class="field-label"
+          ><span id="setting-gate-db-value">Umbral de silencio: -50 dB</span
+          ><input
+            id="setting-gate-db"
+            class="input-field"
+            type="range"
+            min="-60"
+            max="-30"
+            step="1"
+            value="-50"
+        /></label
+        ><label class="field-label"
           >Descanso después de (min)<input
             id="setting-rest"
             class="input-field"

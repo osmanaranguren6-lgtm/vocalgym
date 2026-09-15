@@ -13,6 +13,8 @@ export const defaults = () => ({
       waitForNote: false,
       routineId: "warmup",
       recordExercises: false,
+      clarity: 0.9,
+      gateDb: -50,
   },
   streak: { current: 0, best: 0, lastDate: "", graceUsedWeekOf: "" },
   range: { history: [] },
